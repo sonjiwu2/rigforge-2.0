@@ -1,0 +1,12 @@
+.panel {
+  padding: var(--rf-space-4);
+  border: 1px solid var(--rf-border);
+  border-radius: var(--rf-radius-card);
+  background: var(--rf-surface);
+}
+
+@media (min-width: 600px) {
+  .panel {
+    padding: var(--rf-space-6);
+  }
+}
