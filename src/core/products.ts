@@ -1,13 +1,23 @@
 import { getCategory } from '../data/catalog';
 import type {
+  CatalogFilters,
   CategoryId,
   DetailsTarget,
+  FilterOptions,
   Offer,
+  Popularity,
   PriceKind,
   Product,
   ProductSnapshot,
+  RatingSummary,
+  RatingsMap,
+  SortKey,
   Spec,
 } from '../types';
+
+export interface ProductFilters extends Partial<CatalogFilters> {
+  query?: string;
+}
 
 export interface RawPrice {
   retailer?: unknown;
@@ -249,4 +259,207 @@ export function toSnapshot(product: DetailsTarget): ProductSnapshot {
     specs,
     priceAsOf: product.priceAsOf,
   };
+}
+
+export function filterValue(
+  key: string,
+  value: string | null | undefined,
+  categoryId: CategoryId,
+): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value);
+  const lower = text.toLowerCase();
+
+  if (key === 'Form Factor' && categoryId === 'case') {
+    if (lower.includes('full tower')) return 'Full Tower';
+    if (lower.includes('mid tower') || lower.includes('midi tower')) return 'Mid Tower';
+    if (lower.includes('mini tower')) return 'Mini Tower';
+    return text;
+  }
+  if (key === 'Form Factor' && categoryId === 'motherboard') {
+    if (/e-?atx/.test(lower)) return 'E-ATX';
+    if (/mini[\s-]?itx/.test(lower)) return 'Mini-ITX';
+    if (/\bmatx\b|\bm-atx\b|micro[\s-]?atx/.test(lower)) return 'Micro-ATX';
+    if (/\batx\b/.test(lower)) return 'ATX';
+    return text;
+  }
+  if (key === 'Memory' && categoryId === 'gpu') {
+    const match = text.match(/(\d+)\s*GB/i);
+    return match ? `${match[1]} GB` : text;
+  }
+  if (key === 'Type' && categoryId === 'ram') {
+    const match = text.match(/DDR(\d)/i);
+    return match ? `DDR${match[1]}` : text;
+  }
+  if (key === 'Capacity' && categoryId === 'ram') {
+    const match = text.match(/^(\d+)\s*GB/i);
+    return match ? `${match[1]} GB` : text;
+  }
+  if (key === 'Type' && categoryId === 'cooler') {
+    if (/aio|all-in-one|liquid|hydro|water/.test(lower)) return 'Жидкостное';
+    if (/\bair\b/.test(lower)) return 'Воздушное';
+    return text;
+  }
+  if (key === 'Modular' && categoryId === 'psu') {
+    if (/semi/.test(lower)) return 'Полумодульный';
+    if (/non|^нет$|^false$/.test(lower)) return 'Немодульный';
+    if (/full|^modular$|^да$/.test(lower)) return 'Полностью модульный';
+    return text;
+  }
+  return text;
+}
+
+export function filterBrand(product: Product): string | null {
+  const brand = product.manufacturer;
+  if (!brand) return null;
+  if (/^(wd|wd_black|western digital)$/i.test(brand)) return 'WD';
+  if (/^sandisk/i.test(brand) && /\bwd\b|wd_black/i.test(`${brand} ${product.model || ''}`)) return 'WD';
+  return brand;
+}
+
+function getFilterSpec(product: Product, key: string): string | null {
+  return filterValue(key, getSpec(product, key), product.category);
+}
+
+function normalizeQuery(text: string | null | undefined): string[] {
+  return String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+function matchesQuery(product: Product, words: string[]): boolean {
+  if (!words.length) return true;
+  const haystack = [product.name, product.manufacturer, filterBrand(product), product.model, product.mpn]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
+function integerOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
+export function filterProducts(items: Product[], filters: ProductFilters = {}): Product[] {
+  const words = normalizeQuery(filters.query);
+  const brands = filters.brands || [];
+  const specs = filters.specs || {};
+  const priceMin = integerOrNull(filters.priceMin);
+  const priceMax = integerOrNull(filters.priceMax);
+
+  return items.filter((product) => {
+    if (!matchesQuery(product, words)) return false;
+    if (brands.length) {
+      const brand = filterBrand(product);
+      if (brand === null || !brands.includes(brand)) return false;
+    }
+
+    if (priceMin !== null || priceMax !== null) {
+      if (product.priceMinor === null) return false;
+      if (priceMin !== null && product.priceMinor < priceMin) return false;
+      if (priceMax !== null && product.priceMinor > priceMax) return false;
+    }
+
+    for (const [key, values] of Object.entries(specs)) {
+      if (!Array.isArray(values) || !values.length) continue;
+      const value = getFilterSpec(product, key);
+      if (value === null || !values.includes(value)) return false;
+    }
+    return true;
+  });
+}
+
+function comparePrice(a: Product, b: Product): number {
+  if (a.priceMinor === null && b.priceMinor === null) return 0;
+  if (a.priceMinor === null) return 1;
+  if (b.priceMinor === null) return -1;
+  return a.priceMinor - b.priceMinor;
+}
+
+export function sortProducts(
+  items: Product[],
+  sort: SortKey = 'popular',
+  ratings: RatingsMap = {},
+): Product[] {
+  const list = items.slice();
+  const rating = (product: Product): RatingSummary =>
+    (ratings && ratings[product.id]) || { average: null, count: 0 };
+  const reviewCount = (product: Product): number => rating(product).count || 0;
+
+  if (sort === 'price-asc') return list.sort(comparePrice);
+  if (sort === 'price-desc') {
+    return list.sort((a, b) => {
+      if (a.priceMinor === null || b.priceMinor === null) return comparePrice(a, b);
+      return b.priceMinor - a.priceMinor;
+    });
+  }
+  if (sort === 'rating') {
+    return list.sort((a, b) => {
+      const avgA = rating(a).average;
+      const avgB = rating(b).average;
+      if (avgA === null && avgB === null) return 0;
+      if (avgA === null) return 1;
+      if (avgB === null) return -1;
+      return avgB - avgA || reviewCount(b) - reviewCount(a);
+    });
+  }
+
+  const popularity = (product: Product): Popularity =>
+    product.popularity || { offers: (product.offers || []).length, favorites: 0 };
+  return list.sort((a, b) => {
+    const popA = popularity(a);
+    const popB = popularity(b);
+    return popB.offers - popA.offers || popB.favorites - popA.favorites || reviewCount(b) - reviewCount(a);
+  });
+}
+
+function specSortValue(value: string): number | null {
+  const match = value.match(/^(\d+(?:\.\d+)?)\s*(TB|GB|MB)?/i);
+  if (!match) return null;
+  const multipliers: Record<string, number> = { tb: 1000, gb: 1, mb: 0.001 };
+  const unit = match[2] ? match[2].toLowerCase() : null;
+  return Number(match[1]) * (unit ? multipliers[unit] : 1);
+}
+
+const VALUE_ORDER = ['Немодульный', 'Полумодульный', 'Полностью модульный', 'Mini-ITX', 'Micro-ATX', 'ATX', 'E-ATX', 'Mini Tower', 'Mid Tower', 'Full Tower'];
+
+function compareSpecValues(a: string, b: string): number {
+  const orderA = VALUE_ORDER.indexOf(a);
+  const orderB = VALUE_ORDER.indexOf(b);
+  if (orderA !== -1 && orderB !== -1) return orderA - orderB;
+  if (orderA !== -1) return -1;
+  if (orderB !== -1) return 1;
+
+  const numA = specSortValue(a);
+  const numB = specSortValue(b);
+  if (numA !== null && numB !== null && numA !== numB) return numA - numB;
+  if (numA !== null && numB === null) return -1;
+  if (numA === null && numB !== null) return 1;
+  return a.localeCompare(b, 'ru', { numeric: true });
+}
+
+function isText(value: string | null): value is string {
+  return Boolean(value);
+}
+
+export function getFilterOptions(items: Product[], categoryId: CategoryId): FilterOptions {
+  const category = getCategory(categoryId);
+  const brands = [...new Set(items.map(filterBrand).filter(isText))].sort((a, b) =>
+    a.localeCompare(b, 'en'),
+  );
+
+  const specs: FilterOptions['specs'] = {};
+  for (const key of category ? category.filterSpecs : []) {
+    const values = [...new Set(items.map((item) => filterValue(key, getSpec(item, key), categoryId)).filter(isText))];
+    if (!values.length) continue;
+    specs[key] = { label: SPEC_LABELS[key] || key, values: values.sort(compareSpecValues) };
+  }
+
+  const prices: number[] = [];
+  for (const item of items) {
+    if (item.priceMinor !== null) prices.push(item.priceMinor);
+  }
+  const priceRange = prices.length
+    ? { min: Math.min(...prices), max: Math.max(...prices) }
+    : { min: null, max: null };
+
+  return { brands, specs, priceRange };
 }
