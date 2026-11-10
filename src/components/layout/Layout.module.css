@@ -1,0 +1,66 @@
+:root {
+  --rf-page-gutter: 16px;
+  --rf-header-height: 64px;
+}
+
+@media (min-width: 600px) {
+  :root {
+    --rf-page-gutter: 24px;
+    --rf-header-height: 72px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --rf-page-gutter: 56px;
+  }
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.skipLink {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1100;
+  padding: var(--rf-space-3) var(--rf-space-4);
+  border-radius: var(--rf-radius-control);
+  background: var(--rf-primary);
+  color: var(--rf-on-primary);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skipLink:focus,
+.skipLink:focus-visible {
+  transform: none;
+  outline-color: var(--rf-focus);
+  box-shadow: 0 0 0 3px var(--rf-surface);
+}
+
+.main {
+  flex: 1 0 auto;
+}
+
+.main:focus {
+  outline: none;
+}
+
+.page {
+  width: 100%;
+  max-width: calc(var(--rf-content-max) + 2 * var(--rf-page-gutter));
+  margin-inline: auto;
+  padding: 20px var(--rf-page-gutter) var(--rf-space-12);
+}
+
+@media (min-width: 600px) {
+  .page {
+    padding-top: var(--rf-space-8);
+  }
+}
