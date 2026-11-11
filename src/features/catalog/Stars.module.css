@@ -1,0 +1,123 @@
+.stars,
+.input {
+  --rf-star: #B8862B;
+  --rf-star-empty: #C9CEC4;
+  --rf-star-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.94 5.96 6.56.95-4.75 4.63 1.12 6.54L12 17.5l-5.87 3.08 1.12-6.54L2.5 9.41l6.56-.95z'/%3E%3C/svg%3E");
+}
+
+.stars {
+  display: inline-block;
+  flex: none;
+  width: 5em;
+  height: 1em;
+  font-size: 16px;
+  vertical-align: -0.15em;
+  -webkit-mask: var(--rf-star-shape) 0 0 / 1em 1em repeat-x;
+  mask: var(--rf-star-shape) 0 0 / 1em 1em repeat-x;
+  forced-color-adjust: none;
+}
+
+.large {
+  font-size: 24px;
+}
+
+.rating {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--rf-text-secondary);
+}
+
+.ratingEmpty {
+  font-weight: 400;
+}
+
+.input {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.input > legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.options {
+  display: inline-flex;
+  margin-left: -6px;
+}
+
+.options label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--rf-radius-control);
+  color: var(--rf-star-empty);
+  cursor: pointer;
+  transition: color var(--rf-duration) var(--rf-easing);
+}
+
+.options label > [aria-hidden="true"] {
+  display: block;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  font-size: 0;
+  background: currentColor;
+  -webkit-mask: var(--rf-star-shape) center / contain no-repeat;
+  mask: var(--rf-star-shape) center / contain no-repeat;
+  forced-color-adjust: none;
+}
+
+.options:has(input[value="1"]:checked) label:nth-of-type(-n+1),
+.options:has(input[value="2"]:checked) label:nth-of-type(-n+2),
+.options:has(input[value="3"]:checked) label:nth-of-type(-n+3),
+.options:has(input[value="4"]:checked) label:nth-of-type(-n+4),
+.options:has(input[value="5"]:checked) label:nth-of-type(-n+5) {
+  color: var(--rf-star);
+}
+
+@media (hover: hover) {
+  .options:has(label:nth-of-type(n):hover) label:nth-of-type(n) {
+    color: var(--rf-star-empty);
+  }
+
+  .options:has(label:nth-of-type(1):hover) label:nth-of-type(-n+1),
+  .options:has(label:nth-of-type(2):hover) label:nth-of-type(-n+2),
+  .options:has(label:nth-of-type(3):hover) label:nth-of-type(-n+3),
+  .options:has(label:nth-of-type(4):hover) label:nth-of-type(-n+4),
+  .options:has(label:nth-of-type(5):hover) label:nth-of-type(-n+5) {
+    color: var(--rf-star);
+  }
+
+  .options label:hover {
+    background: var(--rf-sage);
+  }
+}
+
+.options input:focus-visible + label {
+  outline: var(--rf-focus-width) solid var(--rf-focus);
+  outline-offset: -3px;
+}
+
+.invalid .options {
+  border-radius: var(--rf-radius-control);
+  box-shadow: inset 0 0 0 1px var(--rf-error);
+}
+
+.invalid .options label {
+  color: #D8B4AF;
+}
+
+.input .error {
+  margin-top: 4px;
+}
