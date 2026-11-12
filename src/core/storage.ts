@@ -39,15 +39,27 @@ export const WARNING_UNAVAILABLE = 'Хранилище браузера недо
 const WARNING_BROKEN = 'Сохранённые данные повреждены и были сброшены';
 const WARNING_PARTLY_BROKEN = 'Часть сохранённых данных повреждена и была удалена';
 
+function emptySlots(): BuildSlots {
+  return {
+    cpu: null,
+    motherboard: null,
+    gpu: null,
+    ram: null,
+    ssd: null,
+    hdd: null,
+    psu: null,
+    case: null,
+    cooler: null,
+  };
+}
+
 export function createEmptyBuild(name = 'Сборка №1'): Build {
-  const slots = {} as BuildSlots;
-  for (const id of SLOT_IDS) slots[id] = null;
   return {
     id: 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8),
     name,
     budgetMinor: null,
     currency: 'GBP',
-    slots,
+    slots: emptySlots(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -186,13 +198,10 @@ function cleanBuild(value: unknown, isSaved: boolean, problems: Problems): Build
   const rawSlots = value.slots;
   if (!isPlainObject(rawSlots)) return null;
 
-  const slots = {} as BuildSlots;
+  const slots = emptySlots();
   for (const id of SLOT_IDS) {
     const raw = rawSlots[id];
-    if (raw === null || raw === undefined) {
-      slots[id] = null;
-      continue;
-    }
+    if (raw === null || raw === undefined) continue;
     slots[id] = cleanSnapshot(raw, id);
     if (!slots[id]) problems.count++;
   }
