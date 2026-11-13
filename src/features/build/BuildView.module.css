@@ -1,0 +1,93 @@
+.page {
+  min-width: 0;
+}
+
+.page .head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--rf-space-4) var(--rf-space-6);
+}
+
+.head .newBuild {
+  flex: 0 0 auto;
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rf-space-3);
+  margin: 0 0 var(--rf-space-6);
+  padding: var(--rf-space-3) var(--rf-space-4);
+  border: 1px solid var(--rf-warning);
+  border-radius: var(--rf-radius-card);
+  background: var(--rf-warning-surface);
+  color: var(--rf-warning);
+  font-weight: 500;
+}
+
+.warning svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rf-space-6);
+  align-items: start;
+}
+
+.layout .parts {
+  min-width: 0;
+  padding: 0 0 var(--rf-space-2);
+}
+
+.partsHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rf-space-3);
+  padding: 20px 20px var(--rf-space-4);
+}
+
+.partsTitle {
+  margin: 0;
+  font-size: var(--rf-card-title);
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.partsCount {
+  margin: 0;
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-text-secondary);
+}
+
+.parts .list {
+  container: parts / inline-size;
+  margin: 0;
+  padding: 0 var(--rf-space-4);
+  list-style: none;
+}
+
+@media (max-width: 599px) {
+  .page .head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .head .newBuild {
+    width: 100%;
+  }
+
+  .partsHead {
+    padding: var(--rf-space-4) var(--rf-space-4) var(--rf-space-3);
+  }
+
+  .parts .list {
+    padding: 0 var(--rf-space-3);
+  }
+}

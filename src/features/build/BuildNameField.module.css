@@ -1,0 +1,66 @@
+.field {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.label {
+  display: block;
+  margin-bottom: var(--rf-space-1);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--rf-text-secondary);
+}
+
+.input {
+  display: block;
+  width: 100%;
+  min-height: var(--rf-control-height);
+  margin: 0 0 0 calc(-1 * var(--rf-space-2));
+  padding: 0 var(--rf-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--rf-radius-control);
+  background: transparent;
+  color: var(--rf-text);
+  font-family: var(--rf-font-display);
+  font-weight: 600;
+  font-size: var(--rf-h1-desktop);
+  line-height: 44px;
+  text-overflow: ellipsis;
+  transition:
+    border-color var(--rf-duration) var(--rf-easing),
+    background-color var(--rf-duration) var(--rf-easing);
+}
+
+.input:hover {
+  border-color: var(--rf-border);
+}
+
+.input:focus {
+  border-color: var(--rf-control-border);
+  background: var(--rf-surface);
+}
+
+.input:focus-visible {
+  outline: var(--rf-focus-width) solid var(--rf-focus);
+  outline-offset: var(--rf-focus-offset);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--rf-error);
+}
+
+.field .error {
+  margin: var(--rf-space-1) 0 0;
+}
+
+@media (max-width: 599px) {
+  .field {
+    flex: 0 0 auto;
+  }
+
+  .input {
+    font-size: var(--rf-h1-mobile);
+    line-height: 36px;
+  }
+}
