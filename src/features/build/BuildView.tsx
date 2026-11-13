@@ -1,6 +1,7 @@
 import { Button, Icon, panelClass, visuallyHiddenClass } from '../../components/ui';
 import { PageHead } from '../../components/layout';
 import { CATEGORIES } from '../../data/catalog';
+import { BudgetPanel } from './BudgetPanel';
 import { BuildNameField } from './BuildNameField';
 import { BuildRow } from './BuildRow';
 import { calculateBuildTotals, countText } from './totals';
@@ -14,11 +15,14 @@ export interface BuildViewProps {
   money: Money;
   storageWarning: string | null;
   onRenameBuild: (name: string) => void;
+  onBudgetChange: (budgetMinor: number | null) => void;
   onReplace: (slotId: CategoryId) => void;
   onChoose: (slotId: CategoryId) => void;
   onRemove: (slotId: CategoryId) => void;
   onOpenDetails: (part: ProductSnapshot, trigger: HTMLElement) => void;
+  onSave: () => void;
   onNewBuild: () => void;
+  onDownload: () => void;
 }
 
 export function BuildView({
@@ -26,11 +30,14 @@ export function BuildView({
   money,
   storageWarning,
   onRenameBuild,
+  onBudgetChange,
   onReplace,
   onChoose,
   onRemove,
   onOpenDetails,
+  onSave,
   onNewBuild,
+  onDownload,
 }: BuildViewProps) {
   const totals = calculateBuildTotals(build);
 
@@ -54,6 +61,21 @@ export function BuildView({
       </div>
 
       <div className={styles.layout}>
+        <div className={styles.side}>
+          <BudgetPanel
+            key={build.id}
+            build={build}
+            money={money}
+            onBudgetChange={onBudgetChange}
+            onSave={onSave}
+            onDownload={onDownload}
+          />
+          <p className={styles.note}>
+            <Icon name="info" />
+            <span>Совместимость не проверена. Сверьте требования деталей перед покупкой.</span>
+          </p>
+        </div>
+
         <section className={`${panelClass} ${styles.parts}`} aria-labelledby="build-parts-title">
           <div className={styles.partsHead}>
             <h2 className={styles.partsTitle} id="build-parts-title">

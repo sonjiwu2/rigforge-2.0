@@ -39,6 +39,42 @@
   align-items: start;
 }
 
+.side {
+  min-width: 0;
+}
+
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rf-space-2);
+  margin: var(--rf-space-3) 0 0;
+  padding: 0 var(--rf-space-1);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-text-secondary);
+}
+
+.note svg {
+  flex: 0 0 auto;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-areas: "parts side";
+  }
+
+  .side {
+    grid-area: side;
+    position: sticky;
+    top: var(--rf-space-6);
+  }
+
+  .layout .parts {
+    grid-area: parts;
+  }
+}
+
 .layout .parts {
   min-width: 0;
   padding: 0 0 var(--rf-space-2);

@@ -1,0 +1,227 @@
+.summary {
+  padding: var(--rf-space-6);
+  border-radius: var(--rf-radius-panel);
+  background: var(--rf-primary);
+  color: var(--rf-on-primary);
+}
+
+.title {
+  margin: 0;
+  color: inherit;
+  font-family: var(--rf-font-display);
+  font-weight: 600;
+  font-size: var(--rf-h2);
+  line-height: 30px;
+}
+
+.count {
+  margin-top: var(--rf-space-1);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-on-primary-secondary);
+}
+
+.total {
+  margin-top: var(--rf-space-4);
+}
+
+.totalLabel,
+.totalMissing {
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-on-primary-secondary);
+}
+
+.totalValue {
+  font-size: 34px;
+  line-height: 42px;
+  font-weight: 600;
+  font-variant-numeric: lining-nums;
+  overflow-wrap: anywhere;
+}
+
+.rateNote {
+  margin-top: var(--rf-space-1);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-on-primary-secondary);
+}
+
+.totalMixed {
+  margin-top: var(--rf-space-1);
+  font-weight: 600;
+}
+
+.budget {
+  margin-top: 20px;
+  padding-top: var(--rf-space-4);
+  border-top: 1px solid color-mix(in srgb, var(--rf-on-primary-secondary) 35%, transparent);
+}
+
+.budgetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rf-space-3);
+}
+
+.budgetLabel {
+  font-size: var(--rf-body);
+  line-height: 24px;
+}
+
+.budgetInput {
+  width: 140px;
+  min-width: 0;
+  height: var(--rf-control-height);
+  padding: 0 14px;
+  border: 1px solid var(--rf-on-primary-secondary);
+  border-radius: var(--rf-radius-control);
+  background: transparent;
+  color: var(--rf-on-primary);
+  font: inherit;
+  font-weight: 600;
+  font-variant-numeric: lining-nums;
+  text-align: right;
+}
+
+.budgetInput::placeholder {
+  color: var(--rf-on-primary-secondary);
+  opacity: 0.8;
+}
+
+.summary :focus-visible {
+  outline: var(--rf-focus-width) solid var(--rf-focus);
+  outline-offset: var(--rf-focus-offset);
+  box-shadow: 0 0 0 var(--rf-focus-offset) var(--rf-on-primary);
+}
+
+.budgetInput[aria-invalid="true"] {
+  border-color: var(--rf-error-surface);
+  border-width: 2px;
+}
+
+.budgetError,
+.budgetOver {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rf-space-2);
+  margin-top: var(--rf-space-3);
+  padding: var(--rf-space-2) var(--rf-space-3);
+  border-radius: var(--rf-radius-control);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.budgetError {
+  background: var(--rf-error-surface);
+  color: var(--rf-error);
+}
+
+.budgetOver {
+  background: var(--rf-warning-surface);
+  color: var(--rf-warning);
+}
+
+.budgetOver svg {
+  flex: 0 0 auto;
+}
+
+.progress {
+  height: var(--rf-space-2);
+  margin-top: var(--rf-space-4);
+  overflow: hidden;
+  border-radius: var(--rf-space-1);
+  background: color-mix(in srgb, var(--rf-on-primary-secondary) 30%, transparent);
+}
+
+.progressBar {
+  display: block;
+  height: 100%;
+  max-width: 100%;
+  border-radius: var(--rf-space-1);
+  background: var(--rf-on-primary);
+  transition: width var(--rf-duration) var(--rf-easing);
+}
+
+.progressOver .progressBar {
+  background: var(--rf-warning-surface);
+}
+
+.budgetLeft,
+.budgetHint {
+  margin-top: var(--rf-space-3);
+  font-size: var(--rf-body);
+  line-height: 24px;
+  font-variant-numeric: lining-nums;
+}
+
+.budgetHint {
+  color: var(--rf-on-primary-secondary);
+}
+
+.summary .save {
+  margin-top: 20px;
+}
+
+.download {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rf-space-2);
+  min-height: var(--rf-target-min);
+  margin-top: var(--rf-space-2);
+  padding: 0 var(--rf-space-1);
+  border: 0;
+  border-radius: var(--rf-space-1);
+  background: none;
+  color: var(--rf-on-primary);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.download span {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.download:hover span {
+  text-decoration-thickness: 2px;
+}
+
+@media (min-width: 600px) and (max-width: 1023px) {
+  .summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "title budget"
+      "count budget"
+      "total budget"
+      "total save"
+      "total download";
+    column-gap: var(--rf-space-8);
+    align-items: start;
+  }
+
+  .title { grid-area: title; }
+  .count { grid-area: count; }
+  .total { grid-area: total; }
+
+  .budget {
+    grid-area: budget;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .summary .save { grid-area: save; }
+  .download { grid-area: download; justify-self: start; }
+}
+
+@media (max-width: 599px) {
+  .summary {
+    padding: 20px;
+  }
+}
