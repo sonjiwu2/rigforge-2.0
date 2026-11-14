@@ -1,0 +1,40 @@
+.section {
+  margin-top: var(--rf-space-6);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.offer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--rf-space-3);
+  min-height: 48px;
+  padding: var(--rf-space-1) 0;
+  border-bottom: 1px solid var(--rf-border);
+  font-size: var(--rf-secondary);
+}
+
+.shop {
+  overflow-wrap: anywhere;
+}
+
+.price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  text-align: right;
+}
+
+.offer .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.list + .asOf {
+  margin-top: var(--rf-space-2);
+}

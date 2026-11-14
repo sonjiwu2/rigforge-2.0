@@ -1,0 +1,23 @@
+aside.sidebar {
+  display: none;
+  padding: var(--rf-space-4) 20px 20px;
+}
+
+.title {
+  margin: 0 0 var(--rf-space-2);
+  font: 600 18px/24px var(--rf-font-body);
+}
+
+.sidebar .error {
+  margin: 0 0 var(--rf-space-3);
+}
+
+.reset {
+  margin-top: var(--rf-space-1);
+}
+
+@media (min-width: 1200px) {
+  aside.sidebar {
+    display: block;
+  }
+}

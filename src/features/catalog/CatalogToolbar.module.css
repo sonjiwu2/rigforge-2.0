@@ -1,0 +1,49 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rf-space-3);
+}
+
+.count {
+  flex: 1;
+  margin: 0;
+  color: var(--rf-text-secondary);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+}
+
+.sort select {
+  min-width: 210px;
+}
+
+@media (max-width: 599px) {
+  .toolbar {
+    gap: var(--rf-space-2) var(--rf-space-2);
+  }
+
+  .count {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .toolbar .filtersButton {
+    flex: none;
+  }
+
+  .sort {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .sort select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .toolbar .filtersButton {
+    display: none;
+  }
+}

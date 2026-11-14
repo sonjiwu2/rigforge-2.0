@@ -1,0 +1,16 @@
+.subtitle {
+  margin: 0 0 var(--rf-space-2);
+  font: 600 var(--rf-body)/24px var(--rf-font-body);
+}
+
+.muted {
+  margin: 0 0 var(--rf-space-2);
+  color: var(--rf-text-secondary);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+}
+
+.text {
+  margin: 0 0 var(--rf-space-4);
+  line-height: 24px;
+}
