@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent } from 'react';
-import { getProductDetails, ATTRIBUTION } from '../../api/vantaspec';
+import { ATTRIBUTION, getProductDetails, isAbortError } from '../../api/vantaspec';
 import { Button, Icon } from '../../components/ui';
 import { ProductImage } from '../../components/ProductImage/ProductImage';
 import { getProductArtwork } from '../../core/artwork';
 import { getCategory } from '../../data/catalog';
 import { convertFromGbp, formatMoney, formatPrice } from '../../utils/format';
-import type { DetailsTarget, Money, Product, ProductAction } from '../../types';
+import type { DetailsTarget, Money, ProductAction } from '../../types';
 import { BodyText, Muted } from './DetailsText';
+import { isFullProduct } from './isFullProduct';
+import { OffersBlock } from './OffersBlock';
 import { PhotoCredit } from './PhotoCredit';
+import { PriceStatsBlock } from './PriceStatsBlock';
+import { SeriesBlock } from './SeriesBlock';
 import { SpecsList } from './SpecsList';
 import styles from './DetailsDialog.module.css';
 
@@ -33,10 +37,6 @@ interface DetailsContentProps extends DetailsDialogProps {
   target: DetailsTarget;
 }
 
-function isFullProduct(product: DetailsTarget): product is Product {
-  return 'offers' in product && Array.isArray(product.offers);
-}
-
 function formatRateDate(date: string | null): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '');
   return match ? `${match[3]}.${match[2]}.${match[1]}` : '';
@@ -51,6 +51,9 @@ function getPriceNote(priceMinor: number, money: Money): string {
 
 function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild, onClose }: DetailsContentProps) {
   const [product, setProduct] = useState<DetailsTarget>(target);
+  const [detailsFailed, setDetailsFailed] = useState(false);
+  const [detailsAttempt, setDetailsAttempt] = useState(0);
+  const [seriesRequested, setSeriesRequested] = useState(false);
   const [tab, setTab] = useState(0);
   const [photoFailed, setPhotoFailed] = useState(false);
   const [actionDone, setActionDone] = useState(false);
@@ -79,13 +82,16 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
   useEffect(() => {
     if (isFullProduct(target)) return;
     const controller = new AbortController();
+    setDetailsFailed(false);
     getProductDetails(target, { signal: controller.signal })
       .then((full) => {
         if (!controller.signal.aborted) setProduct(full);
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted && !isAbortError(error)) setDetailsFailed(true);
+      });
     return () => controller.abort();
-  }, []);
+  }, [detailsAttempt]);
 
   useEffect(() => {
     if (actionDone && goBuildRef.current) goBuildRef.current.focus();
@@ -101,6 +107,7 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
 
   function selectTab(index: number, focus: boolean) {
     setTab(index);
+    if (index === 1) setSeriesRequested(true);
     if (focus && tabRefs.current[index]) tabRefs.current[index].focus();
   }
 
@@ -211,6 +218,13 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
           >
             <SpecsList specs={product.specs} />
             <p className={styles.note}>Совместимость не проверена</p>
+            <PriceStatsBlock product={product} money={money} />
+            <OffersBlock
+              product={product}
+              failed={detailsFailed}
+              money={money}
+              onRetry={() => setDetailsAttempt(detailsAttempt + 1)}
+            />
           </div>
           <div
             className={styles.panel}
@@ -223,6 +237,7 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
             {isFullProduct(product) && product.description && <BodyText lang="en">{product.description}</BodyText>}
             {isFullProduct(product) && !product.description && <Muted>Описание модели не указано</Muted>}
             {!isFullProduct(product) && <Muted>Загрузка…</Muted>}
+            <SeriesBlock product={product} requested={seriesRequested} />
           </div>
           <p className={styles.attribution}>
             <a href={ATTRIBUTION.url} target="_blank" rel="noopener noreferrer">
