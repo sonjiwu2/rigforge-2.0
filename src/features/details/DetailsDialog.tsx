@@ -6,12 +6,13 @@ import { ProductImage } from '../../components/ProductImage/ProductImage';
 import { getProductArtwork } from '../../core/artwork';
 import { getCategory } from '../../data/catalog';
 import { convertFromGbp, formatMoney, formatPrice } from '../../utils/format';
-import type { DetailsTarget, Money, ProductAction } from '../../types';
+import type { DetailsTarget, Money, NewReview, ProductAction, RatingSummary, Review } from '../../types';
 import { BodyText, Muted } from './DetailsText';
 import { isFullProduct } from './isFullProduct';
 import { OffersBlock } from './OffersBlock';
 import { PhotoCredit } from './PhotoCredit';
 import { PriceStatsBlock } from './PriceStatsBlock';
+import { ReviewsBlock } from './ReviewsBlock';
 import { SeriesBlock } from './SeriesBlock';
 import { SpecsList } from './SpecsList';
 import styles from './DetailsDialog.module.css';
@@ -19,6 +20,7 @@ import styles from './DetailsDialog.module.css';
 const TABS = [
   { id: 'specs', label: 'Характеристики' },
   { id: 'desc', label: 'Описание' },
+  { id: 'reviews', label: 'Отзывы' },
 ];
 
 const DEFAULT_ACTION: ProductAction = { label: 'В сборку', inBuild: false, disabled: false };
@@ -27,8 +29,12 @@ interface DetailsDialogProps {
   target: DetailsTarget | null;
   trigger: HTMLElement | null;
   money: Money;
+  reviews: Review[];
+  rating: RatingSummary;
   action: ProductAction | null;
   onAction: (product: DetailsTarget) => void;
+  onAddReview: (productId: string, review: NewReview) => boolean;
+  onDeleteReview: (productId: string, reviewId: string) => void;
   onGoToBuild: () => void;
   onClose: () => void;
 }
@@ -49,7 +55,26 @@ function getPriceNote(priceMinor: number, money: Money): string {
   return `${rate}, в магазине ${formatMoney(priceMinor, 'GBP')}`;
 }
 
-function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild, onClose }: DetailsContentProps) {
+function resolveRating(rating: RatingSummary, reviews: Review[]): RatingSummary {
+  if (rating.count > 0 && Number.isFinite(rating.average)) return rating;
+  if (!reviews.length) return { average: null, count: 0 };
+  const sum = reviews.reduce((total, review) => total + review.rating, 0);
+  return { average: Math.round((sum / reviews.length) * 10) / 10, count: reviews.length };
+}
+
+function DetailsContent({
+  target,
+  trigger,
+  money,
+  reviews,
+  rating,
+  action,
+  onAction,
+  onAddReview,
+  onDeleteReview,
+  onGoToBuild,
+  onClose,
+}: DetailsContentProps) {
   const [product, setProduct] = useState<DetailsTarget>(target);
   const [detailsFailed, setDetailsFailed] = useState(false);
   const [detailsAttempt, setDetailsAttempt] = useState(0);
@@ -61,6 +86,7 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
   const closeRef = useRef<HTMLButtonElement>(null);
   const goBuildRef = useRef<HTMLButtonElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const reviewsPanelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const leavingRef = useRef(false);
 
@@ -139,6 +165,7 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
   const mpn = ('mpn' in product && product.mpn) || getProductArtwork(product).mpn;
   const isPlaceholderPhoto = photoArt.isPlaceholder || photoFailed;
   const currentAction = action || DEFAULT_ACTION;
+  const currentRating = resolveRating(rating, reviews);
   const priceNote = product.priceMinor === null ? '' : getPriceNote(product.priceMinor, money);
 
   return (
@@ -205,6 +232,9 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
                 onKeyDown={(event) => handleTabKeyDown(event, index)}
               >
                 {item.label}
+                {item.id === 'reviews' && currentRating.count > 0 && (
+                  <span className={styles.tabCount}> ({currentRating.count})</span>
+                )}
               </button>
             ))}
           </div>
@@ -238,6 +268,24 @@ function DetailsContent({ target, trigger, money, action, onAction, onGoToBuild,
             {isFullProduct(product) && !product.description && <Muted>Описание модели не указано</Muted>}
             {!isFullProduct(product) && <Muted>Загрузка…</Muted>}
             <SeriesBlock product={product} requested={seriesRequested} />
+          </div>
+          <div
+            ref={reviewsPanelRef}
+            className={styles.panel}
+            role="tabpanel"
+            id="details-panel-reviews"
+            aria-labelledby="details-tab-reviews"
+            tabIndex={0}
+            hidden={tab !== 2}
+          >
+            <ReviewsBlock
+              productId={product.id}
+              reviews={reviews}
+              rating={currentRating}
+              panelRef={reviewsPanelRef}
+              onAddReview={onAddReview}
+              onDeleteReview={onDeleteReview}
+            />
           </div>
           <p className={styles.attribution}>
             <a href={ATTRIBUTION.url} target="_blank" rel="noopener noreferrer">

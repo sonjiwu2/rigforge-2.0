@@ -185,6 +185,10 @@ html:has(.dialog[open]) {
   color: var(--rf-text);
 }
 
+.tabCount {
+  font-weight: 500;
+}
+
 .tab[aria-selected="true"] {
   color: var(--rf-primary);
   font-weight: 600;
