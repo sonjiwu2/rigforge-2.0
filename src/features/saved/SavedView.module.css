@@ -1,0 +1,146 @@
+.page {
+  min-width: 0;
+}
+
+.page .head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--rf-space-4) var(--rf-space-6);
+}
+
+.headText {
+  min-width: 0;
+}
+
+.title:focus {
+  outline: none;
+}
+
+.title:focus-visible {
+  outline: var(--rf-focus-width) solid var(--rf-focus);
+  outline-offset: var(--rf-focus-offset);
+}
+
+.head .newBuild {
+  flex: 0 0 auto;
+}
+
+.rateNote {
+  margin: var(--rf-space-1) 0 0;
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-text-secondary);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--rf-space-3);
+  margin: 0 0 var(--rf-space-6);
+  padding: var(--rf-space-3) var(--rf-space-4);
+  border: 1px solid var(--rf-warning);
+  border-radius: var(--rf-radius-card);
+  background: var(--rf-warning-surface);
+  color: var(--rf-warning);
+  font-weight: 500;
+}
+
+.warning svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.page .search {
+  max-width: 420px;
+  margin-bottom: var(--rf-space-6);
+}
+
+.searchBox {
+  position: relative;
+}
+
+.searchBox > svg {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: var(--rf-text-secondary);
+  pointer-events: none;
+}
+
+.searchBox .searchInput {
+  width: 100%;
+  padding-left: 44px;
+}
+
+.page .grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rf-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid > li {
+  display: flex;
+  min-width: 0;
+}
+
+@media (min-width: 600px) {
+  .page .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--rf-space-6);
+  }
+}
+
+@media (min-width: 1024px) {
+  .page .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.page .empty {
+  max-width: 640px;
+}
+
+.note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rf-space-4) var(--rf-space-6);
+  margin-top: var(--rf-space-6);
+  padding: 20px var(--rf-space-6);
+  border-radius: var(--rf-radius-card);
+  background: var(--rf-sage);
+}
+
+.noteTitle {
+  margin-bottom: var(--rf-space-1);
+  font-weight: 600;
+}
+
+.noteText p:last-child {
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  color: var(--rf-text-secondary);
+}
+
+@media (max-width: 599px) {
+  .page .head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .head .newBuild,
+  .note .downloadAll {
+    width: 100%;
+  }
+
+  .note {
+    padding: var(--rf-space-4);
+  }
+}
