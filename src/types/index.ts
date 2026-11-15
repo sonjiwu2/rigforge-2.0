@@ -97,6 +97,19 @@ export interface Build {
   savedAt?: string;
 }
 
+export interface BuildTotals {
+  count: number;
+  knownTotalMinor: number | null;
+  unknownCount: number;
+  currency: string | null;
+  mixedCurrencies: boolean;
+}
+
+export interface TypedBudget {
+  minor: number;
+  currency: CurrencyCode;
+}
+
 export interface Review {
   id: string;
   rating: number;
