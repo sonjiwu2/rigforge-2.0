@@ -19,6 +19,16 @@
   --rf-disabled-surface: #E7EAE2;
   --rf-on-primary: #FCFCF9;
   --rf-on-primary-secondary: #DFE8DA;
+  --rf-sage-active: #CFDCC9;
+  --rf-overlay: rgb(24 35 33 / 0.45);
+  --rf-white: #FFFFFF;
+  --rf-star: #B8862B;
+  --rf-star-empty: #C9CEC4;
+  --rf-star-danger: #D8B4AF;
+  --rf-error-border: #E6C3BE;
+  --rf-warning-border: #E5D3B3;
+  --rf-toast-shadow: 0 6px 20px rgba(16, 58, 46, 0.18);
+  --rf-toast-action-hover: rgba(252, 252, 249, 0.14);
   --rf-font-body: "Onest", "Segoe UI", Arial, sans-serif;
   --rf-font-display: "Unbounded", "Onest", "Segoe UI", sans-serif;
   --rf-space-1: 4px; --rf-space-2: 8px; --rf-space-3: 12px;
@@ -29,5 +39,8 @@
   --rf-duration: 120ms; --rf-easing: ease-out;
   --rf-h1-desktop: 34px; --rf-h1-mobile: 26px; --rf-h2: 22px;
   --rf-body: 16px; --rf-secondary: 14px; --rf-card-title: 18px;
+  --rf-page-gutter: 16px; --rf-header-height: 64px;
 }
+@media (min-width: 600px) { :root { --rf-page-gutter: 24px; --rf-header-height: 72px; } }
+@media (min-width: 1024px) { :root { --rf-page-gutter: 56px; } }
 @media (prefers-reduced-motion: reduce) { :root { --rf-duration: 0ms; } }

@@ -96,7 +96,7 @@
 }
 
 .iconButton:active {
-  background: #CFDCC9;
+  background: var(--rf-sage-active);
 }
 
 .primary {
@@ -128,7 +128,7 @@
 }
 
 .secondary:active {
-  background: #CFDCC9;
+  background: var(--rf-sage-active);
   border-color: var(--rf-primary-active);
   color: var(--rf-primary-active);
 }
@@ -146,8 +146,8 @@
 }
 
 .light:active {
-  background: #CFDCC9;
-  border-color: #CFDCC9;
+  background: var(--rf-sage-active);
+  border-color: var(--rf-sage-active);
   color: var(--rf-primary-active);
 }
 
