@@ -1,9 +1,12 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import type { RefObject } from 'react';
 import { ProductImage } from '../../components/ProductImage/ProductImage';
-import { Button, Icon, VisuallyHidden } from '../../components/ui';
+import { Button, Icon, VisuallyHidden, visuallyHiddenClass } from '../../components/ui';
 import { getProductArtwork } from '../../core/artwork';
 import { CATEGORIES } from '../../data/catalog';
 import { calculateBuildTotals, countText, priceText } from '../build/totals';
+import { SavedCardMenu } from './SavedCardMenu';
+import { SavedRenameForm } from './SavedRenameForm';
 import type { Build, Category, CategoryId, Money, ProductSnapshot } from '../../types';
 import styles from './SavedCard.module.css';
 
@@ -40,21 +43,89 @@ interface SavedCardProps {
   build: Build;
   money: Money;
   isCurrent: boolean;
+  isRenaming: boolean;
+  renameDraft: string;
+  renameError: string;
+  nameMax: number;
+  renameInputRef: RefObject<HTMLInputElement | null>;
+  focusTarget: 'menu' | 'open' | null;
+  onFocusDone: () => void;
   onOpen: () => void;
+  onStartRename: () => void;
+  onRenameDraftChange: (draft: string) => void;
+  onRenameSubmit: () => void;
+  onRenameCancel: () => void;
+  onDuplicate: () => void;
+  onDownload: () => void;
+  onDelete: () => void;
 }
 
-export function SavedCard({ build, money, isCurrent, onOpen }: SavedCardProps) {
+export function SavedCard({
+  build,
+  money,
+  isCurrent,
+  isRenaming,
+  renameDraft,
+  renameError,
+  nameMax,
+  renameInputRef,
+  focusTarget,
+  onFocusDone,
+  onOpen,
+  onStartRename,
+  onRenameDraftChange,
+  onRenameSubmit,
+  onRenameCancel,
+  onDuplicate,
+  onDownload,
+  onDelete,
+}: SavedCardProps) {
   const nameId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
   const parts = keyParts(build);
   const totals = calculateBuildTotals(build);
+
+  useEffect(() => {
+    if (!focusTarget) return;
+    if (focusTarget === 'menu') menuButtonRef.current?.focus();
+    else openButtonRef.current?.focus();
+    onFocusDone();
+  }, [focusTarget]);
 
   return (
     <article className={styles.card} aria-labelledby={nameId}>
       <div className={styles.head}>
-        <h2 className={styles.name} id={nameId}>
+        {isRenaming ? (
+          <SavedRenameForm
+            draft={renameDraft}
+            error={renameError}
+            maxLength={nameMax}
+            inputRef={renameInputRef}
+            onDraftChange={onRenameDraftChange}
+            onSubmit={onRenameSubmit}
+            onCancel={onRenameCancel}
+          />
+        ) : (
+          <h2 className={styles.name} id={nameId}>
+            {build.name}
+          </h2>
+        )}
+        <SavedCardMenu
+          buildName={build.name}
+          hideButton={isRenaming}
+          buttonRef={menuButtonRef}
+          onRename={onStartRename}
+          onDuplicate={onDuplicate}
+          onDownload={onDownload}
+          onDelete={onDelete}
+        />
+      </div>
+      {isRenaming && (
+        <h2 className={visuallyHiddenClass} id={nameId}>
           {build.name}
         </h2>
-      </div>
+      )}
       {isCurrent && (
         <p className={styles.current}>
           <Icon name="check" />
@@ -105,7 +176,7 @@ export function SavedCard({ build, money, isCurrent, onOpen }: SavedCardProps) {
             Сохранено <time dateTime={build.savedAt}>{dateFormat.format(new Date(build.savedAt))}</time>
           </p>
         )}
-        <Button className={styles.open} variant="primary" block onClick={onOpen}>
+        <Button ref={openButtonRef} className={styles.open} variant="primary" block onClick={onOpen}>
           Открыть сборку
           <VisuallyHidden> «{build.name}»</VisuallyHidden>
         </Button>

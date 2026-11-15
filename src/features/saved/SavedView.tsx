@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PageHead, PageSub, PageTitle } from '../../components/layout';
 import { Button, Field, FieldLabel, Icon, StateMessage, TextInput } from '../../components/ui';
 import { countText, formatRateDate, getDisplayCurrency } from '../build/totals';
@@ -6,8 +6,20 @@ import { SavedCard } from './SavedCard';
 import type { Build, Money } from '../../types';
 import styles from './SavedView.module.css';
 
+const NAME_MAX = 80;
 const SEARCH_FROM = 4;
 const BUILD_FORMS = ['сборка', 'сборки', 'сборок'];
+
+interface RenameState {
+  id: string;
+  draft: string;
+  error: string;
+}
+
+interface FocusRequest {
+  id: string;
+  target: 'menu' | 'open';
+}
 
 function normalize(text: string): string {
   return text.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
@@ -19,6 +31,10 @@ export interface SavedViewProps {
   currentSavedId: string | null;
   storageWarning: string | null;
   onOpenSaved: (id: string) => void;
+  onRenameSaved: (id: string, name: string) => void;
+  onDuplicateSaved: (id: string) => void;
+  onDeleteSaved: (id: string) => void;
+  onDownloadSaved: (id: string) => void;
   onDownloadAll: () => void;
   onNewBuild: () => void;
   onGoToBuild: () => void;
@@ -30,12 +46,21 @@ export function SavedView({
   currentSavedId,
   storageWarning,
   onOpenSaved,
+  onRenameSaved,
+  onDuplicateSaved,
+  onDeleteSaved,
+  onDownloadSaved,
   onDownloadAll,
   onNewBuild,
   onGoToBuild,
 }: SavedViewProps) {
   const [query, setQuery] = useState('');
+  const [rename, setRename] = useState<RenameState | null>(null);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameId = rename ? rename.id : null;
 
   const showSearch = saved.length >= SEARCH_FROM;
   if (!showSearch && query) setQuery('');
@@ -47,16 +72,52 @@ export function SavedView({
     ? saved.filter((item) => normalize(item.name).includes(normalizedQuery))
     : saved;
 
+  useEffect(() => {
+    if (!renameId) return;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [renameId]);
+
   function clearSearch() {
     setQuery('');
     searchRef.current?.focus();
+  }
+
+  function cancelRename() {
+    if (!rename) return;
+    setFocusRequest({ id: rename.id, target: 'menu' });
+    setRename(null);
+  }
+
+  function submitRename() {
+    if (!rename) return;
+    const name = rename.draft.trim();
+    if (!name || name.length > NAME_MAX) {
+      setRename({
+        ...rename,
+        error: name ? `Название не длиннее ${NAME_MAX} символов` : 'Введите название сборки',
+      });
+      renameInputRef.current?.focus();
+      return;
+    }
+    setFocusRequest({ id: rename.id, target: 'menu' });
+    setRename(null);
+    onRenameSaved(rename.id, name);
+  }
+
+  function deleteBuild(id: string) {
+    const index = visible.findIndex((item) => item.id === id);
+    const neighbour = visible[index + 1] || visible[index - 1];
+    onDeleteSaved(id);
+    if (neighbour) setFocusRequest({ id: neighbour.id, target: 'open' });
+    else titleRef.current?.focus();
   }
 
   return (
     <div className={styles.page}>
       <PageHead className={styles.head}>
         <div className={styles.headText}>
-          <PageTitle className={styles.title} tabIndex={-1}>
+          <PageTitle ref={titleRef} className={styles.title} tabIndex={-1}>
             Сохранённые сборки
           </PageTitle>
           <PageSub hidden={!saved.length}>{saved.length ? countText(saved.length, BUILD_FORMS) : ''}</PageSub>
@@ -133,7 +194,21 @@ export function SavedView({
                 build={build}
                 money={money}
                 isCurrent={currentSavedId === build.id}
+                isRenaming={rename?.id === build.id}
+                renameDraft={rename?.id === build.id ? rename.draft : ''}
+                renameError={rename?.id === build.id ? rename.error : ''}
+                nameMax={NAME_MAX}
+                renameInputRef={renameInputRef}
+                focusTarget={focusRequest?.id === build.id ? focusRequest.target : null}
+                onFocusDone={() => setFocusRequest(null)}
                 onOpen={() => onOpenSaved(build.id)}
+                onStartRename={() => setRename({ id: build.id, draft: build.name, error: '' })}
+                onRenameDraftChange={(draft) => setRename({ id: build.id, draft, error: rename?.error ?? '' })}
+                onRenameSubmit={submitRename}
+                onRenameCancel={cancelRename}
+                onDuplicate={() => onDuplicateSaved(build.id)}
+                onDownload={() => onDownloadSaved(build.id)}
+                onDelete={() => deleteBuild(build.id)}
               />
             </li>
           ))}

@@ -1,0 +1,61 @@
+.wrap {
+  position: relative;
+  flex: 0 0 auto;
+  margin: calc(-1 * var(--rf-space-1)) calc(-1 * var(--rf-space-2)) 0 0;
+}
+
+.wrap .button[aria-expanded="true"] {
+  background: var(--rf-sage);
+}
+
+.wrap .menu {
+  position: absolute;
+  top: calc(100% + var(--rf-space-1));
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--rf-border);
+  border-radius: var(--rf-radius-card);
+  background: var(--rf-surface);
+  box-shadow: 0 var(--rf-space-2) var(--rf-space-6) color-mix(in srgb, var(--rf-text) 12%, transparent);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--rf-space-3);
+  width: 100%;
+  min-height: var(--rf-target-min);
+  padding: 0 var(--rf-space-3);
+  border: 0;
+  border-radius: var(--rf-radius-control);
+  background: none;
+  color: var(--rf-text);
+  font: inherit;
+  font-size: var(--rf-body);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu button:hover {
+  background: var(--rf-sage);
+}
+
+.menu button:focus-visible {
+  outline: var(--rf-focus-width) solid var(--rf-focus);
+  outline-offset: -3px;
+}
+
+.menu button svg {
+  flex: 0 0 auto;
+  color: var(--rf-text-secondary);
+}
+
+.menu .danger,
+.menu .danger svg {
+  color: var(--rf-error);
+}
