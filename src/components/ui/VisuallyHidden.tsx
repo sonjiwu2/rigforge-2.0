@@ -3,24 +3,19 @@ import styles from './VisuallyHidden.module.css';
 
 interface VisuallyHiddenProps {
   children: ReactNode;
-  id?: string;
   htmlFor?: string;
 }
 
 export const visuallyHiddenClass = styles.hidden;
 
-export function VisuallyHidden({ children, id, htmlFor }: VisuallyHiddenProps) {
+export function VisuallyHidden({ children, htmlFor }: VisuallyHiddenProps) {
   if (htmlFor) {
     return (
-      <label className={styles.hidden} id={id} htmlFor={htmlFor}>
+      <label className={styles.hidden} htmlFor={htmlFor}>
         {children}
       </label>
     );
   }
 
-  return (
-    <span className={styles.hidden} id={id}>
-      {children}
-    </span>
-  );
+  return <span className={styles.hidden}>{children}</span>;
 }
