@@ -65,7 +65,7 @@ export function useCatalog({ active, ratings, onItemsLoaded }: UseCatalogOptions
     setCatalog((current) => ({ ...current, ...changes, status: 'loading', error: null }));
 
     try {
-      const all = await loadCategory(next.category, { signal: controller.signal });
+      const allItems = await loadCategory(next.category, { signal: controller.signal });
       const result = await searchProducts(
         {
           category: next.category,
@@ -81,10 +81,10 @@ export function useCatalog({ active, ratings, onItemsLoaded }: UseCatalogOptions
       );
       if (requestId !== requestIdRef.current) return;
 
-      onItemsLoaded(all.items);
+      onItemsLoaded(allItems);
       setCatalog((current) => ({
         ...current,
-        options: getFilterOptions(all.items, next.category),
+        options: getFilterOptions(allItems, next.category),
         items: result.items,
         total: result.total,
         status: result.items.length ? 'success' : 'empty',

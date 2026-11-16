@@ -1,4 +1,5 @@
 import { ApiError, fetchJson, isAbortError } from './vantaspec';
+import type { RequestOptions } from './vantaspec';
 import type { CurrencyCode } from '../types';
 
 export interface CurrencyInfo {
@@ -9,14 +10,9 @@ export interface CurrencyInfo {
   digits: number;
 }
 
-export interface RatesResult {
+interface RatesResult {
   rates: Record<CurrencyCode, number>;
   date: string | null;
-  source: string;
-}
-
-export interface LoadRatesOptions {
-  signal?: AbortSignal;
 }
 
 interface RawRatesResponse {
@@ -42,18 +38,17 @@ function isPositiveNumber(value: unknown): value is number {
 async function fetchRates(url: string, signal?: AbortSignal): Promise<RatesResult> {
   const json = await fetchJson(url, { signal });
   const data = json as RawRatesResponse | null;
-  const gbp = data && data.gbp;
-  if (!gbp || !isPositiveNumber(gbp.usd) || !isPositiveNumber(gbp.rub)) {
+  const gbp = data?.gbp;
+  if (!data || !gbp || !isPositiveNumber(gbp.usd) || !isPositiveNumber(gbp.rub)) {
     throw new ApiError('format', 'Курсы валют пришли в непонятном формате.');
   }
   return {
     rates: { GBP: 1, USD: gbp.usd, RUB: gbp.rub },
-    date: data && typeof data.date === 'string' ? data.date : null,
-    source: 'Currency-api',
+    date: typeof data.date === 'string' ? data.date : null,
   };
 }
 
-export async function loadRates({ signal }: LoadRatesOptions = {}): Promise<RatesResult> {
+export async function loadRates({ signal }: RequestOptions = {}): Promise<RatesResult> {
   if (cachedRates) return cachedRates;
 
   let result: RatesResult;
