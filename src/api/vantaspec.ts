@@ -6,6 +6,7 @@ import type { CategoryId, DetailsTarget, Product, RatingsMap, SortKey } from '..
 const COMPARE_URL = 'https://vantaspec.com/api/compare';
 const TIMEOUT_MS = 12000;
 const CHUNK_SIZE = 4;
+const PARTNER_TRIES = 3;
 
 export const ATTRIBUTION = { text: 'Данные: VantaSpec', url: 'https://vantaspec.com' };
 
@@ -165,27 +166,41 @@ async function fetchCompare(
   return normalizeCompareResponse(data, categoryId);
 }
 
-function withPartner(slug: string, slugs: string[], skip: string[]): string[] {
-  const partner = slugs.find((other) => other !== slug && !skip.includes(other));
-  return partner ? [slug, partner] : [slug];
+function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
 }
 
-async function fetchChunk(chunk: string[], slugs: string[], categoryId: CategoryId): Promise<Product[]> {
-  const request = chunk.length === 1 ? withPartner(chunk[0], slugs, []) : chunk;
-  try {
-    return await fetchCompare(request, categoryId);
-  } catch (err) {
-    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+async function fetchOne(
+  slug: string,
+  categoryId: CategoryId,
+  skip: string[],
+  signal?: AbortSignal,
+): Promise<Product | null> {
+  const partners = CATALOG_SLUGS[categoryId].filter((other) => other !== slug && !skip.includes(other));
+  for (const partner of partners.slice(0, PARTNER_TRIES)) {
+    try {
+      const items = await fetchCompare([slug, partner], categoryId, { signal });
+      return items.find((item) => item.slug === slug) ?? null;
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
+  }
+  return null;
+}
+
+async function fetchChunk(chunk: string[], categoryId: CategoryId): Promise<Product[]> {
+  if (chunk.length > 1) {
+    try {
+      return await fetchCompare(chunk, categoryId);
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
   }
 
   const found: Product[] = [];
   for (const slug of chunk) {
-    try {
-      const items = await fetchCompare(withPartner(slug, slugs, chunk), categoryId);
-      found.push(...items.filter((item) => item.slug === slug));
-    } catch (err) {
-      if (!(err instanceof ApiError) || err.status !== 404) throw err;
-    }
+    const item = await fetchOne(slug, categoryId, chunk);
+    if (item) found.push(item);
   }
   return found;
 }
@@ -197,7 +212,7 @@ async function fetchCategory(categoryId: CategoryId): Promise<Product[]> {
     chunks.push(slugs.slice(i, i + CHUNK_SIZE));
   }
 
-  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk, slugs, categoryId)));
+  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk, categoryId)));
 
   const bySlug = new Map<string, Product>();
   for (const items of results) {
@@ -246,15 +261,9 @@ export async function getProductDetails(
   const found = items.find((item) => item.id === product.id || item.slug === product.slug);
   if (found) return found;
 
-  const other = CATALOG_SLUGS[product.category].find((slug) => slug !== product.slug);
-  if (product.slug && other) {
-    try {
-      const fetched = await fetchCompare([product.slug, other], product.category, { signal });
-      const item = fetched.find((entry) => entry.slug === product.slug);
-      if (item) return item;
-    } catch (err) {
-      if (!(err instanceof ApiError && err.status === 404)) throw err;
-    }
+  if (product.slug) {
+    const item = await fetchOne(product.slug, product.category, [], signal);
+    if (item) return item;
   }
   throw new ApiError('http', 'Этот товар больше не найден в каталоге.', { status: 404 });
 }
