@@ -4,7 +4,7 @@ import { convertFromGbp, convertToGbp, formatMoney, formatPrice, pluralRu } from
 import type { ConvertedMoney } from '../../utils/format';
 import type { Build, BuildTotals, CurrencyCode, Money, TypedBudget } from '../../types';
 
-export type BudgetInfo =
+type BudgetInfo =
   | { kind: 'none' }
   | { kind: 'incomplete' }
   | { kind: 'left'; diff: number; percent: number; currency: CurrencyCode }

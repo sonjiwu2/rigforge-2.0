@@ -10,9 +10,9 @@ interface ReviewInput {
   author?: unknown;
 }
 
-export const REVIEW_TEXT_MAX = 1000;
-export const REVIEW_AUTHOR_MAX = 40;
-export const REVIEWS_PER_PRODUCT = 50;
+const REVIEW_TEXT_MAX = 1000;
+const REVIEW_AUTHOR_MAX = 40;
+const REVIEWS_PER_PRODUCT = 50;
 
 function makeId(): string {
   return 'r-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
@@ -22,7 +22,7 @@ function isRating(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5;
 }
 
-export function isProductId(value: unknown): value is string {
+function isProductId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z0-9-]+:\S{1,120}$/i.test(value);
 }
 
@@ -51,7 +51,7 @@ export function createReview({ rating, text = '', author = '' }: ReviewInput): R
   };
 }
 
-export function cleanReview(value: unknown): Review | null {
+function cleanReview(value: unknown): Review | null {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return null;
   const { id, rating, text, author, createdAt } = value as Record<string, unknown>;
   if (typeof id !== 'string' || id.length < 1 || id.length > 60) return null;

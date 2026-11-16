@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CATEGORIES, getCategory } from '../data/catalog';
+import {
+  createBuildCopy,
+  getAddedText,
+  getAddLabel,
+  getNextBuildName,
+  getProductAction,
+  insertBuild,
+  isBuildDirty,
+  isProductInBuild,
+  refreshSnapshots,
+  saveToList,
+  setBuildSlot,
+  toOpenedBuild,
+  touchBuild,
+} from '../core/builds';
 import { toSnapshot } from '../core/products';
 import { addReview, createReview, getRatingSummary, getRatingsMap, removeReview } from '../core/reviews';
 import { createEmptyBuild, loadAppState, persistAppState, WARNING_UNAVAILABLE } from '../core/storage';
@@ -7,7 +21,6 @@ import { downloadAllBuilds, downloadBuild } from '../features/build/export';
 import { useMoney } from './useMoney';
 import type {
   Build,
-  BuildSlots,
   CategoryId,
   ConfirmRequest,
   CurrencyCode,
@@ -82,64 +95,56 @@ export interface UseAppStateResult {
   onConfirmResult: (ok: boolean) => void;
 }
 
-function makeId(): string {
-  return 'b-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
-}
-
-function buildContent(build: Build): string {
-  return JSON.stringify({ name: build.name, budgetMinor: build.budgetMinor, slots: build.slots });
-}
-
-function hasParts(build: Build): boolean {
-  return Object.values(build.slots).some(Boolean);
-}
-
-function touched(build: Build): Build {
-  return { ...build, updatedAt: new Date().toISOString() };
-}
-
 function goToBuild(): void {
   window.location.hash = '#build';
 }
 
-function refreshBuild(build: Build, byId: Map<string, Product>): Build {
-  const slots: BuildSlots = { ...build.slots };
-  let changed = false;
-  for (const { id } of CATEGORIES) {
-    const snapshot = slots[id];
-    const fresh = snapshot && byId.get(snapshot.id);
-    if (snapshot && fresh && fresh.imageUrl && !snapshot.imageUrl) {
-      slots[id] = { ...snapshot, imageUrl: fresh.imageUrl };
-      changed = true;
-    }
+function useToast(initialText: string | null) {
+  const [toast, setToast] = useState<ToastMessage | null>(initialText ? { id: 1, text: initialText } : null);
+  const idRef = useRef(1);
+
+  function announce(text: string, options: AnnounceOptions = {}): void {
+    idRef.current += 1;
+    setToast({ id: idRef.current, text, actionLabel: options.actionLabel, onAction: options.onAction });
   }
-  return changed ? { ...build, slots } : build;
+
+  return { toast, announce, closeToast: () => setToast(null) };
+}
+
+function useConfirm() {
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const resolveRef = useRef<((ok: boolean) => void) | null>(null);
+
+  function askConfirm(title: string, text: string, okLabel: string): Promise<boolean> {
+    resolveRef.current?.(false);
+    setConfirmRequest({ title, text, okLabel });
+    return new Promise((resolve) => {
+      resolveRef.current = resolve;
+    });
+  }
+
+  function onConfirmResult(ok: boolean): void {
+    const resolve = resolveRef.current;
+    resolveRef.current = null;
+    setConfirmRequest(null);
+    resolve?.(ok);
+  }
+
+  return { confirmRequest, askConfirm, onConfirmResult };
 }
 
 export function useAppState(): UseAppStateResult {
   const [stored] = useState(loadAppState);
   const [data, setData] = useState<AppData>({ build: stored.build, saved: stored.saved, reviews: stored.reviews });
   const [storageWarning, setStorageWarning] = useState(stored.warning);
-  const [toast, setToast] = useState<ToastMessage | null>(stored.warning ? { id: 1, text: stored.warning } : null);
-  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const { toast, announce, closeToast } = useToast(stored.warning);
+  const { confirmRequest, askConfirm, onConfirmResult } = useConfirm();
+  const { money, setCurrency: changeCurrency, rateNote } = useMoney(stored.settings.currency, announce);
 
   const dataRef = useRef(data);
   const currencyRef = useRef(stored.settings.currency);
-  const toastIdRef = useRef(1);
-  const lastRemovedRef = useRef<RemovedSlot | null>(null);
-  const confirmResolveRef = useRef<((ok: boolean) => void) | null>(null);
-
-  function announce(text: string, options: AnnounceOptions = {}): void {
-    toastIdRef.current += 1;
-    setToast({ id: toastIdRef.current, text, actionLabel: options.actionLabel, onAction: options.onAction });
-  }
-
-  function closeToast(): void {
-    setToast(null);
-  }
-
-  const { money, setCurrency: changeCurrency, rateNote } = useMoney(stored.settings.currency, announce);
   const moneyRef = useRef(money);
+  const lastRemovedRef = useRef<RemovedSlot | null>(null);
 
   useEffect(() => {
     moneyRef.current = money;
@@ -165,68 +170,20 @@ export function useAppState(): UseAppStateResult {
     save();
   }
 
-  function askConfirm(title: string, text: string, okLabel: string): Promise<boolean> {
-    confirmResolveRef.current?.(false);
-    setConfirmRequest({ title, text, okLabel });
-    return new Promise((resolve) => {
-      confirmResolveRef.current = resolve;
-    });
-  }
-
-  function onConfirmResult(ok: boolean): void {
-    const resolve = confirmResolveRef.current;
-    confirmResolveRef.current = null;
-    setConfirmRequest(null);
-    resolve?.(ok);
-  }
-
   function isDirty(): boolean {
-    const { build, saved } = dataRef.current;
-    const current = saved.find((item) => item.id === build.id);
-    if (!current) return hasParts(build);
-    return buildContent(current) !== buildContent(build);
+    return isBuildDirty(dataRef.current.build, dataRef.current.saved);
   }
 
   function nextBuildName(): string {
-    const { build, saved } = dataRef.current;
-    const names = new Set(saved.map((item) => item.name));
-    names.add(build.name);
-    let number = saved.length + 1;
-    while (names.has('Сборка №' + number)) number += 1;
-    return 'Сборка №' + number;
-  }
-
-  function isInBuild(product: DetailsTarget): boolean {
-    return data.build.slots[product.category]?.id === product.id;
-  }
-
-  function getAddLabel(product: DetailsTarget): string {
-    if (isInBuild(product)) return 'В сборке';
-    if (data.build.slots[product.category]) return 'Заменить';
-    return 'В сборку';
-  }
-
-  function getAction(product: DetailsTarget): ProductAction {
-    if (isInBuild(product)) return { label: 'В сборке', inBuild: true, disabled: true };
-    if (data.build.slots[product.category]) {
-      const category = getCategory(product.category);
-      return { label: 'Заменить ' + (category ? category.accusative : ''), inBuild: false, disabled: false };
-    }
-    return { label: 'В сборку', inBuild: false, disabled: false };
+    return getNextBuildName(dataRef.current.build, dataRef.current.saved);
   }
 
   function addProduct(product: DetailsTarget): void {
     const { build } = dataRef.current;
-    if (build.slots[product.category]?.id === product.id) return;
+    if (isProductInBuild(build, product)) return;
     const replaced = Boolean(build.slots[product.category]);
-
-    commit({ build: touched({ ...build, slots: { ...build.slots, [product.category]: toSnapshot(product) } }) });
-
-    const category = getCategory(product.category);
-    const text = replaced
-      ? 'Заменили ' + (category ? category.accusative : '') + ': ' + product.name
-      : 'Добавлено в сборку: ' + product.name;
-    announce(text, { actionLabel: 'К сборке', onAction: goToBuild });
+    commit({ build: setBuildSlot(build, product.category, toSnapshot(product)) });
+    announce(getAddedText(product, replaced), { actionLabel: 'К сборке', onAction: goToBuild });
   }
 
   function undoRemove(): void {
@@ -235,7 +192,7 @@ export function useAppState(): UseAppStateResult {
     if (!removed || removed.buildId !== build.id) return;
     if (build.slots[removed.slotId]) return;
     lastRemovedRef.current = null;
-    commit({ build: touched({ ...build, slots: { ...build.slots, [removed.slotId]: removed.snapshot } }) });
+    commit({ build: setBuildSlot(build, removed.slotId, removed.snapshot) });
   }
 
   function removeSlot(slotId: CategoryId): void {
@@ -243,16 +200,16 @@ export function useAppState(): UseAppStateResult {
     const snapshot = build.slots[slotId];
     if (!snapshot) return;
     lastRemovedRef.current = { buildId: build.id, slotId, snapshot };
-    commit({ build: touched({ ...build, slots: { ...build.slots, [slotId]: null } }) });
+    commit({ build: setBuildSlot(build, slotId, null) });
     announce('Убрано из сборки: ' + snapshot.name, { actionLabel: 'Отменить', onAction: undoRemove });
   }
 
   function renameBuild(name: string): void {
-    commit({ build: touched({ ...dataRef.current.build, name }) });
+    commit({ build: touchBuild({ ...dataRef.current.build, name }) });
   }
 
   function setBudget(budgetMinor: number | null): void {
-    commit({ build: touched({ ...dataRef.current.build, budgetMinor }) });
+    commit({ build: touchBuild({ ...dataRef.current.build, budgetMinor }) });
   }
 
   async function startNewBuild(): Promise<void> {
@@ -260,7 +217,7 @@ export function useAppState(): UseAppStateResult {
       const ok = await askConfirm('Создать новую сборку?', 'Текущие изменения не сохранены.', 'Создать');
       if (!ok) return;
     }
-    commit({ build: touched(createEmptyBuild(nextBuildName())) });
+    commit({ build: touchBuild(createEmptyBuild(nextBuildName())) });
     goToBuild();
     announce('Создана новая сборка');
   }
@@ -271,11 +228,7 @@ export function useAppState(): UseAppStateResult {
 
   function saveCurrentBuild(): void {
     const { build, saved } = dataRef.current;
-    const copy: Build = { ...build, savedAt: new Date().toISOString() };
-    const index = saved.findIndex((item) => item.id === copy.id);
-    const nextSaved = index >= 0 ? saved.map((item, i) => (i === index ? copy : item)) : [copy, ...saved];
-
-    if (commit({ saved: nextSaved })) {
+    if (commit({ saved: saveToList(saved, build) })) {
       announce('Сборка сохранена');
     } else {
       announce('Не удалось сохранить сборку. Скачайте список, чтобы не потерять его', {
@@ -287,17 +240,14 @@ export function useAppState(): UseAppStateResult {
 
   async function openSaved(id: string): Promise<void> {
     const { build, saved } = dataRef.current;
-    const target = saved.find((item) => item.id === id);
-    if (!target) return;
-    if (target.id !== build.id && isDirty()) {
+    if (!saved.some((item) => item.id === id)) return;
+    if (id !== build.id && isDirty()) {
       const ok = await askConfirm('Открыть другую сборку?', 'Текущие изменения не сохранены.', 'Открыть');
       if (!ok) return;
     }
     const latest = dataRef.current.saved.find((item) => item.id === id);
     if (!latest) return;
-    const opened: Build = { ...latest };
-    delete opened.savedAt;
-    commit({ build: touched(opened) });
+    commit({ build: toOpenedBuild(latest) });
     goToBuild();
   }
 
@@ -315,13 +265,8 @@ export function useAppState(): UseAppStateResult {
     const { saved } = dataRef.current;
     const index = saved.findIndex((item) => item.id === id);
     if (index < 0) return;
-    const copy: Build = {
-      ...saved[index],
-      id: makeId(),
-      name: (saved[index].name + ' (копия)').slice(0, 80),
-      savedAt: new Date().toISOString(),
-    };
-    commit({ saved: [...saved.slice(0, index + 1), copy, ...saved.slice(index + 1)] });
+    const copy = createBuildCopy(saved[index]);
+    commit({ saved: insertBuild(saved, index + 1, copy) });
     announce('Создана копия: ' + copy.name);
   }
 
@@ -336,8 +281,7 @@ export function useAppState(): UseAppStateResult {
       onAction: () => {
         const current = dataRef.current.saved;
         if (current.some((item) => item.id === removed.id)) return;
-        const position = Math.min(index, current.length);
-        commit({ saved: [...current.slice(0, position), removed, ...current.slice(position)] });
+        commit({ saved: insertBuild(current, index, removed) });
       },
     });
   }
@@ -349,14 +293,6 @@ export function useAppState(): UseAppStateResult {
 
   function downloadAll(): void {
     downloadAllBuilds(dataRef.current.saved, moneyRef.current);
-  }
-
-  function getRating(productId: string): RatingSummary {
-    return getRatingSummary(data.reviews, productId);
-  }
-
-  function getReviews(productId: string): Review[] {
-    return data.reviews[productId] || [];
   }
 
   function onAddReview(productId: string, review: NewReview): boolean {
@@ -377,14 +313,9 @@ export function useAppState(): UseAppStateResult {
     announce('Отзыв удалён');
   }
 
-  function refreshSnapshots(items: Product[]): void {
-    const byId = new Map(items.map((item) => [item.id, item]));
-    const { build, saved } = dataRef.current;
-    const nextBuild = refreshBuild(build, byId);
-    const nextSaved = saved.map((item) => refreshBuild(item, byId));
-    if (nextBuild !== build || nextSaved.some((item, index) => item !== saved[index])) {
-      commit({ build: nextBuild, saved: nextSaved });
-    }
+  function refreshProductSnapshots(items: Product[]): void {
+    const refreshed = refreshSnapshots(dataRef.current.build, dataRef.current.saved, items);
+    if (refreshed) commit(refreshed);
   }
 
   const ratings = useMemo(() => getRatingsMap(data.reviews), [data.reviews]);
@@ -416,14 +347,14 @@ export function useAppState(): UseAppStateResult {
     downloadSaved,
     downloadAll,
     goToBuild,
-    getAction,
-    getAddLabel,
-    isInBuild,
-    getRating,
-    getReviews,
+    getAction: (product) => getProductAction(data.build, product),
+    getAddLabel: (product) => getAddLabel(data.build, product),
+    isInBuild: (product) => isProductInBuild(data.build, product),
+    getRating: (productId) => getRatingSummary(data.reviews, productId),
+    getReviews: (productId) => data.reviews[productId] || [],
     onAddReview,
     onDeleteReview,
-    refreshSnapshots,
+    refreshSnapshots: refreshProductSnapshots,
     toast,
     announce,
     closeToast,
