@@ -11,18 +11,18 @@ import type {
   Spec,
 } from '../types';
 
-export interface AppSettings {
+interface AppSettings {
   currency: CurrencyCode;
 }
 
-export interface StoredData {
+interface StoredData {
   build: Build;
   saved: Build[];
   reviews: ReviewsMap;
   settings: AppSettings;
 }
 
-export interface LoadedState extends StoredData {
+interface LoadedState extends StoredData {
   storageOk: boolean;
   warning: string | null;
 }
