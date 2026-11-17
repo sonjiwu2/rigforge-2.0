@@ -1,41 +1,17 @@
-import { useEffect, useState } from 'react';
-import { isAbortError } from '../../api/vantaspec';
-import { getSupplementaryInfo } from '../../api/wikipedia';
 import type { SeriesInfo } from '../../api/wikipedia';
 import { Button, TextLink } from '../../components/ui';
-import type { DetailsTarget } from '../../types';
 import { BodyText, Muted, Subtitle } from './DetailsText';
 import { isHttpUrl } from './ExternalLink';
+import type { SeriesStatus } from './useProductDetails';
 import styles from './SeriesBlock.module.css';
 
-type SeriesStatus = 'idle' | 'loading' | 'ready' | 'error';
-
 interface SeriesBlockProps {
-  product: DetailsTarget;
-  requested: boolean;
+  info: SeriesInfo | null;
+  status: SeriesStatus;
+  onRetry: () => void;
 }
 
-export function SeriesBlock({ product, requested }: SeriesBlockProps) {
-  const [info, setInfo] = useState<SeriesInfo | null>(null);
-  const [status, setStatus] = useState<SeriesStatus>('idle');
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    if (!requested) return;
-    const controller = new AbortController();
-    setStatus('loading');
-    getSupplementaryInfo(product, { signal: controller.signal })
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setInfo(result);
-        setStatus('ready');
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted && !isAbortError(error)) setStatus('error');
-      });
-    return () => controller.abort();
-  }, [requested, attempt]);
-
+export function SeriesBlock({ info, status, onRetry }: SeriesBlockProps) {
   return (
     <div aria-live="polite">
       {status === 'loading' && <Muted>Загрузка…</Muted>}
@@ -43,7 +19,7 @@ export function SeriesBlock({ product, requested }: SeriesBlockProps) {
         <div className={styles.error}>
           <p className={styles.errorTitle}>Дополнительное описание недоступно</p>
           <Muted>Характеристики детали доступны.</Muted>
-          <Button variant="secondary" size="sm" onClick={() => setAttempt(attempt + 1)}>
+          <Button variant="secondary" size="sm" onClick={onRetry}>
             Повторить
           </Button>
         </div>

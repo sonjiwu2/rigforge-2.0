@@ -76,136 +76,6 @@ html:has(.dialog[open]) {
   padding: var(--rf-space-2) var(--rf-space-6) var(--rf-space-6);
 }
 
-.photo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--rf-space-2);
-  aspect-ratio: 3 / 2;
-  min-height: 180px;
-  padding: var(--rf-space-4);
-  background: var(--rf-white);
-  border: 1px solid var(--rf-border);
-  border-radius: var(--rf-radius-card);
-  overflow: hidden;
-}
-
-.photo img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  object-fit: contain;
-  object-position: 50% 50%;
-}
-
-.photoPlaceholder {
-  aspect-ratio: 2 / 1;
-  background: var(--rf-background);
-  border-color: transparent;
-}
-
-.photo img[data-placeholder] {
-  width: 88px;
-  height: 88px;
-  flex: none;
-}
-
-.noPhoto {
-  color: var(--rf-text-secondary);
-  font-size: var(--rf-secondary);
-}
-
-.brand {
-  margin: var(--rf-space-4) 0 2px;
-  color: var(--rf-text-secondary);
-  font: 600 var(--rf-secondary)/20px var(--rf-font-body);
-}
-
-.title {
-  margin: 0;
-  font: 600 24px/32px var(--rf-font-body);
-  overflow-wrap: anywhere;
-}
-
-.mpn {
-  margin: var(--rf-space-1) 0 0;
-  color: var(--rf-text-secondary);
-  font-size: var(--rf-secondary);
-  line-height: 20px;
-  overflow-wrap: anywhere;
-}
-
-.price {
-  margin: var(--rf-space-3) 0 0;
-  font: 600 28px/36px var(--rf-font-body);
-  font-variant-numeric: lining-nums;
-}
-
-.priceNote {
-  margin: 2px 0 0;
-  color: var(--rf-text-secondary);
-  font-size: 13px;
-  line-height: 18px;
-}
-
-.priceUnknown {
-  color: var(--rf-text-secondary);
-  font-size: 18px;
-  line-height: 28px;
-}
-
-.priceFrom {
-  font-size: var(--rf-body);
-  font-weight: 500;
-  color: var(--rf-text-secondary);
-}
-
-.tabs {
-  display: flex;
-  gap: var(--rf-space-6);
-  margin-top: var(--rf-space-4);
-  border-bottom: 1px solid var(--rf-border);
-}
-
-.tab {
-  min-height: 48px;
-  padding: 0 var(--rf-space-1);
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: none;
-  color: var(--rf-text-secondary);
-  font: 500 var(--rf-secondary)/20px var(--rf-font-body);
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--rf-text);
-}
-
-.tabCount {
-  font-weight: 500;
-}
-
-.tab[aria-selected="true"] {
-  color: var(--rf-primary);
-  font-weight: 600;
-  border-bottom-color: var(--rf-primary);
-}
-
-.tab:focus-visible,
-.panel:focus-visible {
-  outline: var(--rf-focus-width) solid var(--rf-focus);
-  outline-offset: -3px;
-  border-radius: 4px;
-}
-
-.panel {
-  padding-top: var(--rf-space-2);
-}
-
 .note {
   margin: var(--rf-space-4) 0 0;
   color: var(--rf-text-secondary);
@@ -223,20 +93,6 @@ html:has(.dialog[open]) {
   text-underline-offset: 3px;
 }
 
-.actions {
-  display: flex;
-  gap: var(--rf-space-3);
-  padding: var(--rf-space-4) var(--rf-space-6) calc(var(--rf-space-4) + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--rf-border);
-  background: var(--rf-surface);
-}
-
-.actions .action {
-  flex: 1;
-  min-width: 0;
-  gap: var(--rf-space-2);
-}
-
 @media (max-width: 599px) {
   .dialog {
     width: 100%;
@@ -248,14 +104,5 @@ html:has(.dialog[open]) {
 
   .scroll {
     padding: var(--rf-space-1) var(--rf-space-4) var(--rf-space-6);
-  }
-
-  .actions {
-    padding-inline: var(--rf-space-4);
-  }
-
-  .title {
-    font-size: 22px;
-    line-height: 30px;
   }
 }

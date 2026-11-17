@@ -1,0 +1,51 @@
+.brand {
+  margin: var(--rf-space-4) 0 2px;
+  color: var(--rf-text-secondary);
+  font: 600 var(--rf-secondary)/20px var(--rf-font-body);
+}
+
+.title {
+  margin: 0;
+  font: 600 24px/32px var(--rf-font-body);
+  overflow-wrap: anywhere;
+}
+
+.mpn {
+  margin: var(--rf-space-1) 0 0;
+  color: var(--rf-text-secondary);
+  font-size: var(--rf-secondary);
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.price {
+  margin: var(--rf-space-3) 0 0;
+  font: 600 28px/36px var(--rf-font-body);
+  font-variant-numeric: lining-nums;
+}
+
+.priceNote {
+  margin: 2px 0 0;
+  color: var(--rf-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.priceUnknown {
+  color: var(--rf-text-secondary);
+  font-size: 18px;
+  line-height: 28px;
+}
+
+.priceFrom {
+  font-size: var(--rf-body);
+  font-weight: 500;
+  color: var(--rf-text-secondary);
+}
+
+@media (max-width: 599px) {
+  .title {
+    font-size: 22px;
+    line-height: 30px;
+  }
+}
