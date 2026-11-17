@@ -1,0 +1,19 @@
+.actions {
+  display: flex;
+  gap: var(--rf-space-3);
+  padding: var(--rf-space-4) var(--rf-space-6) calc(var(--rf-space-4) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rf-border);
+  background: var(--rf-surface);
+}
+
+.actions .action {
+  flex: 1;
+  min-width: 0;
+  gap: var(--rf-space-2);
+}
+
+@media (max-width: 599px) {
+  .actions {
+    padding-inline: var(--rf-space-4);
+  }
+}

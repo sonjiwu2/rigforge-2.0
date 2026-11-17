@@ -1,29 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, MouseEvent } from 'react';
-import { ATTRIBUTION, getProductDetails, isAbortError } from '../../api/vantaspec';
+import type { MouseEvent } from 'react';
+import { ATTRIBUTION } from '../../api/vantaspec';
 import { Button, Icon } from '../../components/ui';
-import { ProductImage } from '../../components/ProductImage/ProductImage';
-import { getProductArtwork } from '../../core/artwork';
 import { getCategory } from '../../data/catalog';
-import { convertFromGbp, formatMoney, formatPrice } from '../../utils/format';
 import type { DetailsTarget, Money, NewReview, ProductAction, RatingSummary, Review } from '../../types';
-import { BodyText, Muted } from './DetailsText';
-import { isFullProduct } from './isFullProduct';
+import { DescriptionText } from './DescriptionText';
+import { DetailsActions } from './DetailsActions';
+import { DetailsPhoto } from './DetailsPhoto';
+import { DetailsSummary } from './DetailsSummary';
+import { DetailsPanel, DetailsTabs } from './DetailsTabs';
+import type { DetailsTabId } from './DetailsTabs';
 import { OffersBlock } from './OffersBlock';
-import { PhotoCredit } from './PhotoCredit';
 import { PriceStatsBlock } from './PriceStatsBlock';
 import { ReviewsBlock } from './ReviewsBlock';
 import { SeriesBlock } from './SeriesBlock';
 import { SpecsList } from './SpecsList';
+import { useProductDetails } from './useProductDetails';
 import styles from './DetailsDialog.module.css';
-
-const TABS = [
-  { id: 'specs', label: 'Характеристики' },
-  { id: 'desc', label: 'Описание' },
-  { id: 'reviews', label: 'Отзывы' },
-];
-
-const DEFAULT_ACTION: ProductAction = { label: 'В сборку', inBuild: false, disabled: false };
 
 interface DetailsDialogProps {
   target: DetailsTarget | null;
@@ -41,18 +34,6 @@ interface DetailsDialogProps {
 
 interface DetailsContentProps extends DetailsDialogProps {
   target: DetailsTarget;
-}
-
-function formatRateDate(date: string | null): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date || '');
-  return match ? `${match[3]}.${match[2]}.${match[1]}` : '';
-}
-
-function getPriceNote(priceMinor: number, money: Money): string {
-  if (convertFromGbp(priceMinor, money).currency === 'GBP') return '';
-  const date = formatRateDate(money.date);
-  const rate = date ? `≈ по курсу на ${date}` : '≈ по текущему курсу';
-  return `${rate}, в магазине ${formatMoney(priceMinor, 'GBP')}`;
 }
 
 function resolveRating(rating: RatingSummary, reviews: Review[]): RatingSummary {
@@ -75,17 +56,11 @@ function DetailsContent({
   onGoToBuild,
   onClose,
 }: DetailsContentProps) {
-  const [product, setProduct] = useState<DetailsTarget>(target);
-  const [detailsFailed, setDetailsFailed] = useState(false);
-  const [detailsAttempt, setDetailsAttempt] = useState(0);
-  const [seriesRequested, setSeriesRequested] = useState(false);
-  const [tab, setTab] = useState(0);
-  const [photoFailed, setPhotoFailed] = useState(false);
-  const [actionDone, setActionDone] = useState(false);
+  const details = useProductDetails(target);
+  const { product } = details;
+  const [tab, setTab] = useState<DetailsTabId>('specs');
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const goBuildRef = useRef<HTMLButtonElement>(null);
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const reviewsPanelRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const leavingRef = useRef(false);
@@ -105,24 +80,6 @@ function DetailsContent({
     };
   }, []);
 
-  useEffect(() => {
-    if (isFullProduct(target)) return;
-    const controller = new AbortController();
-    setDetailsFailed(false);
-    getProductDetails(target, { signal: controller.signal })
-      .then((full) => {
-        if (!controller.signal.aborted) setProduct(full);
-      })
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted && !isAbortError(error)) setDetailsFailed(true);
-      });
-    return () => controller.abort();
-  }, [detailsAttempt]);
-
-  useEffect(() => {
-    if (actionDone && goBuildRef.current) goBuildRef.current.focus();
-  }, [actionDone]);
-
   function handleNativeClose() {
     if (dialogRef.current && !dialogRef.current.open) onClose();
   }
@@ -131,27 +88,9 @@ function DetailsContent({
     if (event.target === event.currentTarget) onClose();
   }
 
-  function selectTab(index: number, focus: boolean) {
-    setTab(index);
-    if (index === 1) setSeriesRequested(true);
-    if (focus && tabRefs.current[index]) tabRefs.current[index].focus();
-  }
-
-  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let next: number | null = null;
-    if (event.key === 'ArrowRight') next = (index + 1) % TABS.length;
-    else if (event.key === 'ArrowLeft') next = (index - 1 + TABS.length) % TABS.length;
-    else if (event.key === 'Home') next = 0;
-    else if (event.key === 'End') next = TABS.length - 1;
-    if (next === null) return;
-    event.preventDefault();
-    selectTab(next, true);
-  }
-
-  function handleAction() {
-    if (currentAction.inBuild) return;
-    onAction(product);
-    setActionDone(true);
+  function selectTab(id: DetailsTabId) {
+    setTab(id);
+    if (id === 'desc') details.requestSeries();
   }
 
   function handleGoToBuild() {
@@ -161,12 +100,7 @@ function DetailsContent({
   }
 
   const category = getCategory(product.category);
-  const photoArt = getProductArtwork(target);
-  const mpn = ('mpn' in product && product.mpn) || getProductArtwork(product).mpn;
-  const isPlaceholderPhoto = photoArt.isPlaceholder || photoFailed;
-  const currentAction = action || DEFAULT_ACTION;
   const currentRating = resolveRating(rating, reviews);
-  const priceNote = product.priceMinor === null ? '' : getPriceNote(product.priceMinor, money);
 
   return (
     <dialog
@@ -191,93 +125,30 @@ function DetailsContent({
           />
         </header>
         <div className={styles.scroll}>
-          <div className={isPlaceholderPhoto ? `${styles.photo} ${styles.photoPlaceholder}` : styles.photo}>
-            <ProductImage product={target} large onFallback={() => setPhotoFailed(true)} />
-            {photoArt.isPlaceholder && (
-              <span className={styles.noPhoto} aria-hidden="true">
-                Фото отсутствует
-              </span>
-            )}
-          </div>
-          {!photoFailed && <PhotoCredit art={photoArt} />}
-          {product.manufacturer && <p className={styles.brand}>{product.manufacturer}</p>}
-          <h2 className={styles.title} id="details-title">
-            {product.name}
-          </h2>
-          {mpn && <p className={styles.mpn}>MPN: {mpn}</p>}
-          {product.priceMinor === null ? (
-            <p className={`${styles.price} ${styles.priceUnknown}`}>Цена не указана</p>
-          ) : (
-            <p className={styles.price}>
-              {'priceKind' in product && product.priceKind === 'from' && <span className={styles.priceFrom}>от </span>}
-              {formatPrice(product.priceMinor, money)}
-            </p>
-          )}
-          {priceNote && <p className={styles.priceNote}>{priceNote}</p>}
-          <div className={styles.tabs} role="tablist" aria-label="Сведения о детали">
-            {TABS.map((item, index) => (
-              <button
-                key={item.id}
-                ref={(node) => {
-                  tabRefs.current[index] = node;
-                }}
-                type="button"
-                role="tab"
-                className={styles.tab}
-                id={`details-tab-${item.id}`}
-                aria-controls={`details-panel-${item.id}`}
-                aria-selected={tab === index}
-                tabIndex={tab === index ? 0 : -1}
-                onClick={() => selectTab(index, false)}
-                onKeyDown={(event) => handleTabKeyDown(event, index)}
-              >
-                {item.label}
-                {item.id === 'reviews' && currentRating.count > 0 && (
-                  <span className={styles.tabCount}> ({currentRating.count})</span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div
-            className={styles.panel}
-            role="tabpanel"
-            id="details-panel-specs"
-            aria-labelledby="details-tab-specs"
-            tabIndex={0}
-            hidden={tab !== 0}
-          >
+          <DetailsPhoto product={target} />
+          <DetailsSummary product={product} money={money} />
+          <DetailsTabs active={tab} reviewsCount={currentRating.count} onSelect={selectTab} />
+          <DetailsPanel id="specs" active={tab}>
             <SpecsList specs={product.specs} />
             <p className={styles.note}>Совместимость не проверена</p>
-            <PriceStatsBlock product={product} money={money} />
+            <PriceStatsBlock
+              stats={details.stats}
+              failed={details.statsFailed}
+              money={money}
+              onRetry={details.retryStats}
+            />
             <OffersBlock
               product={product}
-              failed={detailsFailed}
+              failed={details.detailsFailed}
               money={money}
-              onRetry={() => setDetailsAttempt(detailsAttempt + 1)}
+              onRetry={details.retryDetails}
             />
-          </div>
-          <div
-            className={styles.panel}
-            role="tabpanel"
-            id="details-panel-desc"
-            aria-labelledby="details-tab-desc"
-            tabIndex={0}
-            hidden={tab !== 1}
-          >
-            {isFullProduct(product) && product.description && <BodyText lang="en">{product.description}</BodyText>}
-            {isFullProduct(product) && !product.description && <Muted>Описание модели не указано</Muted>}
-            {!isFullProduct(product) && <Muted>Загрузка…</Muted>}
-            <SeriesBlock product={product} requested={seriesRequested} />
-          </div>
-          <div
-            ref={reviewsPanelRef}
-            className={styles.panel}
-            role="tabpanel"
-            id="details-panel-reviews"
-            aria-labelledby="details-tab-reviews"
-            tabIndex={0}
-            hidden={tab !== 2}
-          >
+          </DetailsPanel>
+          <DetailsPanel id="desc" active={tab}>
+            <DescriptionText product={product} />
+            <SeriesBlock info={details.series} status={details.seriesStatus} onRetry={details.retrySeries} />
+          </DetailsPanel>
+          <DetailsPanel id="reviews" active={tab} panelRef={reviewsPanelRef}>
             <ReviewsBlock
               productId={product.id}
               reviews={reviews}
@@ -286,34 +157,14 @@ function DetailsContent({
               onAddReview={onAddReview}
               onDeleteReview={onDeleteReview}
             />
-          </div>
+          </DetailsPanel>
           <p className={styles.attribution}>
             <a href={ATTRIBUTION.url} target="_blank" rel="noopener noreferrer">
               {ATTRIBUTION.text}
             </a>
           </p>
         </div>
-        <footer className={styles.actions}>
-          <Button
-            className={styles.action}
-            variant={currentAction.inBuild ? 'done' : 'primary'}
-            icon={currentAction.inBuild ? 'check' : undefined}
-            aria-disabled={currentAction.inBuild ? 'true' : undefined}
-            disabled={!currentAction.inBuild && currentAction.disabled}
-            onClick={handleAction}
-          >
-            {currentAction.inBuild ? 'В сборке' : currentAction.label || 'В сборку'}
-          </Button>
-          <Button
-            ref={goBuildRef}
-            className={styles.action}
-            variant="secondary"
-            hidden={!(actionDone || currentAction.inBuild)}
-            onClick={handleGoToBuild}
-          >
-            К сборке
-          </Button>
-        </footer>
+        <DetailsActions action={action} onAction={() => onAction(product)} onGoToBuild={handleGoToBuild} />
       </div>
     </dialog>
   );

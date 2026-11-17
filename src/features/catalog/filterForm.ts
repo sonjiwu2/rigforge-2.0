@@ -9,7 +9,7 @@ export interface FilterDraft {
   maxText: string;
 }
 
-export interface FilterCheck {
+interface FilterCheck {
   values: CatalogFilters | null;
   error: string;
   invalidMin: boolean;
