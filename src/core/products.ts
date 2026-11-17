@@ -5,7 +5,6 @@ import type {
   DetailsTarget,
   FilterOptions,
   Offer,
-  Popularity,
   PriceKind,
   Product,
   ProductSnapshot,
@@ -19,14 +18,14 @@ export interface ProductFilters extends Partial<CatalogFilters> {
   query?: string;
 }
 
-export interface RawPrice {
+interface RawPrice {
   retailer?: unknown;
   price?: unknown;
   currency?: unknown;
   url?: unknown;
 }
 
-export interface RawProduct {
+interface RawProduct {
   id?: unknown;
   slug?: unknown;
   brand?: unknown;
@@ -39,7 +38,7 @@ export interface RawProduct {
   prices?: (RawPrice | null)[];
 }
 
-export interface RawSpecRow {
+interface RawSpecRow {
   name?: unknown;
   unit?: unknown;
   values?: unknown[];
@@ -50,7 +49,7 @@ export interface CompareResponse {
   specMatrix?: (RawSpecRow | null)[];
 }
 
-export const SPEC_LABELS: Record<string, string> = {
+const SPEC_LABELS: Record<string, string> = {
   Architecture: 'Архитектура',
   'Base Clock': 'Базовая частота',
   'Boost Clock': 'Частота в бусте',
@@ -171,11 +170,8 @@ function normalizeOffers(prices: (RawPrice | null)[] | undefined): Offer[] {
   return offers.sort((a, b) => a.priceMinor - b.priceMinor);
 }
 
-export function normalizeCompareResponse(
-  json: CompareResponse | null | undefined,
-  categoryId: CategoryId,
-): Product[] {
-  if (!json || !Array.isArray(json.products)) return [];
+export function normalizeCompareResponse(json: CompareResponse, categoryId: CategoryId): Product[] {
+  if (!Array.isArray(json.products)) return [];
   const matrix = Array.isArray(json.specMatrix) ? json.specMatrix : [];
   const priceAsOf = new Date().toISOString();
   const result: Product[] = [];
@@ -229,8 +225,7 @@ export function normalizeCompareResponse(
   return result;
 }
 
-export function getSpec(product: DetailsTarget | null | undefined, key: string): string | null {
-  if (!product || !Array.isArray(product.specs)) return null;
+export function getSpec(product: DetailsTarget, key: string): string | null {
   const spec = product.specs.find((item) => item.key === key);
   return spec ? spec.value : null;
 }
@@ -240,7 +235,7 @@ export function toSnapshot(product: DetailsTarget): ProductSnapshot {
   const cardSpecs = category ? category.cardSpecs : [];
   const specs: Spec[] = [];
   for (const key of cardSpecs) {
-    const spec = (product.specs || []).find((item) => item.key === key);
+    const spec = product.specs.find((item) => item.key === key);
     if (spec) specs.push({ key: spec.key, label: spec.label, value: spec.value, scope: spec.scope });
     if (specs.length === 2) break;
   }
@@ -255,19 +250,14 @@ export function toSnapshot(product: DetailsTarget): ProductSnapshot {
     model: product.model,
     priceMinor: product.priceMinor,
     currency: product.currency,
-    imageUrl: product.imageUrl || null,
+    imageUrl: product.imageUrl,
     specs,
     priceAsOf: product.priceAsOf,
   };
 }
 
-export function filterValue(
-  key: string,
-  value: string | null | undefined,
-  categoryId: CategoryId,
-): string | null {
-  if (value === null || value === undefined) return null;
-  const text = String(value);
+function filterValue(key: string, text: string | null, categoryId: CategoryId): string | null {
+  if (text === null) return null;
   const lower = text.toLowerCase();
 
   if (key === 'Form Factor' && categoryId === 'case') {
@@ -309,7 +299,7 @@ export function filterValue(
   return text;
 }
 
-export function filterBrand(product: Product): string | null {
+function filterBrand(product: Product): string | null {
   const brand = product.manufacturer;
   if (!brand) return null;
   if (/^(wd|wd_black|western digital)$/i.test(brand)) return 'WD';
@@ -321,8 +311,8 @@ function getFilterSpec(product: Product, key: string): string | null {
   return filterValue(key, getSpec(product, key), product.category);
 }
 
-function normalizeQuery(text: string | null | undefined): string[] {
-  return String(text || '').toLowerCase().split(/\s+/).filter(Boolean);
+function normalizeQuery(text: string = ''): string[] {
+  return text.toLowerCase().split(/\s+/).filter(Boolean);
 }
 
 function matchesQuery(product: Product, words: string[]): boolean {
@@ -334,16 +324,12 @@ function matchesQuery(product: Product, words: string[]): boolean {
   return words.every((word) => haystack.includes(word));
 }
 
-function integerOrNull(value: number | null | undefined): number | null {
-  return typeof value === 'number' && Number.isInteger(value) ? value : null;
-}
-
 export function filterProducts(items: Product[], filters: ProductFilters = {}): Product[] {
   const words = normalizeQuery(filters.query);
   const brands = filters.brands || [];
   const specs = filters.specs || {};
-  const priceMin = integerOrNull(filters.priceMin);
-  const priceMax = integerOrNull(filters.priceMax);
+  const priceMin = filters.priceMin ?? null;
+  const priceMax = filters.priceMax ?? null;
 
   return items.filter((product) => {
     if (!matchesQuery(product, words)) return false;
@@ -359,7 +345,7 @@ export function filterProducts(items: Product[], filters: ProductFilters = {}): 
     }
 
     for (const [key, values] of Object.entries(specs)) {
-      if (!Array.isArray(values) || !values.length) continue;
+      if (!values.length) continue;
       const value = getFilterSpec(product, key);
       if (value === null || !values.includes(value)) return false;
     }
@@ -380,9 +366,8 @@ export function sortProducts(
   ratings: RatingsMap = {},
 ): Product[] {
   const list = items.slice();
-  const rating = (product: Product): RatingSummary =>
-    (ratings && ratings[product.id]) || { average: null, count: 0 };
-  const reviewCount = (product: Product): number => rating(product).count || 0;
+  const rating = (product: Product): RatingSummary => ratings[product.id] || { average: null, count: 0 };
+  const reviewCount = (product: Product): number => rating(product).count;
 
   if (sort === 'price-asc') return list.sort(comparePrice);
   if (sort === 'price-desc') {
@@ -402,11 +387,9 @@ export function sortProducts(
     });
   }
 
-  const popularity = (product: Product): Popularity =>
-    product.popularity || { offers: (product.offers || []).length, favorites: 0 };
   return list.sort((a, b) => {
-    const popA = popularity(a);
-    const popB = popularity(b);
+    const popA = a.popularity;
+    const popB = b.popularity;
     return popB.offers - popA.offers || popB.favorites - popA.favorites || reviewCount(b) - reviewCount(a);
   });
 }

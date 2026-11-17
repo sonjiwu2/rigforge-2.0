@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, isAbortError, loadCategory, searchProducts } from '../../api/vantaspec';
 import { getFilterOptions } from '../../core/products';
 import type {
@@ -10,7 +10,7 @@ import type {
   SortKey,
 } from '../../types';
 
-export interface UseCatalogOptions {
+interface UseCatalogOptions {
   active: boolean;
   ratings: RatingsMap;
   onItemsLoaded: (items: Product[]) => void;
@@ -28,14 +28,18 @@ export interface UseCatalogResult {
   clearTargetSlot: () => void;
 }
 
-const INITIAL_CATALOG: CatalogState = {
-  category: 'cpu',
-  query: '',
+const EMPTY_FILTERS: CatalogFilters & { sort: SortKey } = {
   brands: [],
   priceMin: null,
   priceMax: null,
   specs: {},
   sort: 'popular',
+};
+
+const INITIAL_CATALOG: CatalogState = {
+  ...EMPTY_FILTERS,
+  category: 'cpu',
+  query: '',
   status: 'idle',
   items: [],
   total: 0,
@@ -44,70 +48,52 @@ const INITIAL_CATALOG: CatalogState = {
   options: null,
 };
 
-function emptyFilters(): CatalogFilters & { sort: SortKey } {
-  return { brands: [], priceMin: null, priceMax: null, specs: {}, sort: 'popular' };
-}
-
 export function useCatalog({ active, ratings, onItemsLoaded }: UseCatalogOptions): UseCatalogResult {
-  const [catalog, setCatalog] = useState<CatalogState>(INITIAL_CATALOG);
-  const catalogRef = useRef(INITIAL_CATALOG);
+  const [catalog, setCatalog] = useState(INITIAL_CATALOG);
   const controllerRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
-  const startedRef = useRef(false);
-  const ratingsRef = useRef(ratings);
-  const onItemsLoadedRef = useRef(onItemsLoaded);
   const ratingsKey = JSON.stringify(ratings);
-  const lastRatingsKeyRef = useRef(ratingsKey);
 
-  useEffect(() => {
-    ratingsRef.current = ratings;
-    onItemsLoadedRef.current = onItemsLoaded;
-  });
-
-  const updateCatalog = useCallback((changes: Partial<CatalogState>) => {
-    catalogRef.current = { ...catalogRef.current, ...changes };
-    setCatalog(catalogRef.current);
-  }, []);
-
-  const runQuery = useCallback(async () => {
-    startedRef.current = true;
+  async function runQuery(changes: Partial<CatalogState> = {}) {
     if (controllerRef.current) controllerRef.current.abort();
     const controller = new AbortController();
     controllerRef.current = controller;
     requestIdRef.current += 1;
     const requestId = requestIdRef.current;
 
-    updateCatalog({ status: 'loading', error: null });
-    const current = catalogRef.current;
+    const next = { ...catalog, ...changes };
+    setCatalog((current) => ({ ...current, ...changes, status: 'loading', error: null }));
 
     try {
-      const all = await loadCategory(current.category, { signal: controller.signal });
+      const allItems = await loadCategory(next.category, { signal: controller.signal });
       const result = await searchProducts(
         {
-          category: current.category,
-          query: current.query,
-          brands: current.brands,
-          priceMin: current.priceMin,
-          priceMax: current.priceMax,
-          specs: current.specs,
-          sort: current.sort,
-          ratings: ratingsRef.current,
+          category: next.category,
+          query: next.query,
+          brands: next.brands,
+          priceMin: next.priceMin,
+          priceMax: next.priceMax,
+          specs: next.specs,
+          sort: next.sort,
+          ratings,
         },
         { signal: controller.signal },
       );
       if (requestId !== requestIdRef.current) return;
 
-      onItemsLoadedRef.current(all.items);
-      updateCatalog({
-        options: getFilterOptions(all.items, current.category),
+      onItemsLoaded(allItems);
+      setCatalog((current) => ({
+        ...current,
+        options: getFilterOptions(allItems, next.category),
         items: result.items,
         total: result.total,
         status: result.items.length ? 'success' : 'empty',
-      });
+      }));
     } catch (error) {
       if (isAbortError(error) || requestId !== requestIdRef.current) return;
       const apiError = error instanceof ApiError ? error : null;
-      updateCatalog({
+      setCatalog((current) => ({
+        ...current,
         status: 'error',
         error: {
           message: apiError ? apiError.message : 'Попробуйте ещё раз.',
@@ -115,98 +101,66 @@ export function useCatalog({ active, ratings, onItemsLoaded }: UseCatalogOptions
           canRetry: true,
           retryAfter: apiError ? apiError.retryAfter : null,
         },
-      });
-    } finally {
-      if (requestId === requestIdRef.current) controllerRef.current = null;
+      }));
     }
-  }, [updateCatalog]);
+  }
 
   useEffect(() => {
-    if (active && !startedRef.current) runQuery();
-  }, [active, runQuery]);
+    if (active && catalog.status === 'idle') runQuery();
+  }, [active]);
 
   useEffect(() => {
-    if (lastRatingsKeyRef.current === ratingsKey) return;
-    lastRatingsKeyRef.current = ratingsKey;
-    if (startedRef.current && catalogRef.current.status !== 'error') runQuery();
-  }, [ratingsKey, runQuery]);
+    if (catalog.status !== 'idle' && catalog.status !== 'error') runQuery();
+  }, [ratingsKey]);
 
   useEffect(() => {
     return () => {
-      startedRef.current = false;
       requestIdRef.current += 1;
       if (controllerRef.current) controllerRef.current.abort();
-      controllerRef.current = null;
     };
   }, []);
 
-  const search = useCallback(
-    (query: string) => {
-      const current = catalogRef.current;
-      if (query === current.query && current.status === 'success') return;
-      updateCatalog({ query });
-      runQuery();
-    },
-    [updateCatalog, runQuery],
-  );
+  function search(query: string) {
+    if (query === catalog.query && catalog.status === 'success') return;
+    runQuery({ query });
+  }
 
-  const setCategory = useCallback(
-    (id: CategoryId) => {
-      const current = catalogRef.current;
-      if (id === current.category) return;
-      updateCatalog({
-        ...emptyFilters(),
-        category: id,
-        query: '',
-        targetSlot: current.targetSlot === id ? current.targetSlot : null,
-      });
-      runQuery();
-    },
-    [updateCatalog, runQuery],
-  );
+  function setCategory(id: CategoryId) {
+    if (id === catalog.category) return;
+    runQuery({
+      ...EMPTY_FILTERS,
+      category: id,
+      query: '',
+      targetSlot: catalog.targetSlot === id ? id : null,
+    });
+  }
 
-  const applyFilters = useCallback(
-    (filters: Partial<CatalogFilters> & { sort?: SortKey }) => {
-      updateCatalog(filters);
-      runQuery();
-    },
-    [updateCatalog, runQuery],
-  );
+  function applyFilters(filters: Partial<CatalogFilters> & { sort?: SortKey }) {
+    runQuery(filters);
+  }
 
-  const resetFilters = useCallback(() => {
-    updateCatalog({ ...emptyFilters(), sort: catalogRef.current.sort });
+  function resetFilters() {
+    runQuery({ ...EMPTY_FILTERS, sort: catalog.sort });
+  }
+
+  function setSort(sort: SortKey) {
+    runQuery({ sort });
+  }
+
+  function retry() {
     runQuery();
-  }, [updateCatalog, runQuery]);
+  }
 
-  const setSort = useCallback(
-    (sort: SortKey) => {
-      updateCatalog({ sort });
-      runQuery();
-    },
-    [updateCatalog, runQuery],
-  );
+  function chooseForSlot(slot: CategoryId, replace: boolean) {
+    const targetSlot = replace ? slot : null;
+    window.location.hash = '#catalog';
+    if (catalog.category === slot) runQuery({ targetSlot });
+    else runQuery({ ...EMPTY_FILTERS, category: slot, query: '', targetSlot });
+  }
 
-  const retry = useCallback(() => {
-    runQuery();
-  }, [runQuery]);
-
-  const chooseForSlot = useCallback(
-    (slot: CategoryId, replace: boolean) => {
-      const targetSlot = replace ? slot : null;
-      if (catalogRef.current.category !== slot) {
-        updateCatalog({ ...emptyFilters(), category: slot, query: '', targetSlot });
-      } else {
-        updateCatalog({ targetSlot });
-      }
-      window.location.hash = '#catalog';
-      runQuery();
-    },
-    [updateCatalog, runQuery],
-  );
-
-  const clearTargetSlot = useCallback(() => {
-    updateCatalog({ targetSlot: null });
-  }, [updateCatalog]);
+  function clearTargetSlot() {
+    setCatalog((current) => ({ ...current, targetSlot: null }));
+  }
 
   return {
     catalog,

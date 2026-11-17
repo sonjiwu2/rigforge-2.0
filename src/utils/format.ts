@@ -31,10 +31,10 @@ function getFormatter(currency: string): Intl.NumberFormat {
 }
 
 export function formatMoney(
-  priceMinor: number | null | undefined,
-  currency: string | null | undefined = 'GBP',
+  priceMinor: number | null,
+  currency: string | null = 'GBP',
 ): string {
-  if (priceMinor === null || priceMinor === undefined || !Number.isFinite(priceMinor)) {
+  if (priceMinor === null || !Number.isFinite(priceMinor)) {
     return 'Цена не указана';
   }
   const code = currency || 'GBP';
@@ -46,38 +46,36 @@ export function formatMoney(
 }
 
 function getRate(money: Money): number | null {
-  if (!money || !money.currency || money.currency === 'GBP' || !money.rates) return null;
-  const rate = money.rates[money.currency];
-  return typeof rate === 'number' && Number.isFinite(rate) && rate > 0 ? rate : null;
+  if (money.currency === 'GBP' || !money.rates) return null;
+  return money.rates[money.currency];
 }
 
-export function convertFromGbp(minorGbp: number | null | undefined, money: Money): ConvertedMoney {
+export function convertFromGbp(minorGbp: number | null, money: Money): ConvertedMoney {
   const rate = getRate(money);
-  if (minorGbp === null || minorGbp === undefined || !Number.isFinite(minorGbp)) {
+  if (minorGbp === null || !Number.isFinite(minorGbp)) {
     return { minor: null, currency: rate ? money.currency : 'GBP' };
   }
   if (!rate) return { minor: Math.round(minorGbp), currency: 'GBP' };
   return { minor: Math.round(minorGbp * rate), currency: money.currency };
 }
 
-export function convertToGbp(minor: number | null | undefined, money: Money): number | null {
-  if (minor === null || minor === undefined || !Number.isFinite(minor)) return null;
+export function convertToGbp(minor: number | null, money: Money): number | null {
+  if (minor === null || !Number.isFinite(minor)) return null;
   const rate = getRate(money);
   if (!rate) return Math.round(minor);
   return Math.round(minor / rate);
 }
 
-export function formatPrice(minorGbp: number | null | undefined, money: Money): string {
-  if (minorGbp === null || minorGbp === undefined || !Number.isFinite(minorGbp)) {
+export function formatPrice(minorGbp: number | null, money: Money): string {
+  if (minorGbp === null || !Number.isFinite(minorGbp)) {
     return 'Цена не указана';
   }
   const converted = convertFromGbp(minorGbp, money);
   return formatMoney(converted.minor, converted.currency);
 }
 
-export function parseMoneyInput(text: string | null | undefined): number | null {
-  if (text === null || text === undefined) return null;
-  let s = String(text).replace(/[£$₽\s  ]/g, '');
+export function parseMoneyInput(text: string): number | null {
+  let s = text.replace(/[£$₽\s  ]/g, '');
   if (s === '' || s.includes('-')) return null;
 
   const lastComma = s.lastIndexOf(',');

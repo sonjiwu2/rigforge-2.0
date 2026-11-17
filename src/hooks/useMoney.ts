@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { loadRates } from '../api/currency';
 import { isAbortError } from '../api/vantaspec';
 import type { CurrencyCode, Money } from '../types';
 
-export interface UseMoneyResult {
+interface UseMoneyResult {
   money: Money;
   setCurrency: (code: CurrencyCode) => void;
   rateNote: string;
 }
 
 function formatRateDate(date: string): string {
-  const [year, month, day] = String(date).split('-');
+  const [year, month, day] = date.split('-');
   return day && month ? `${day}.${month}.${year}` : date;
 }
 
@@ -34,47 +34,31 @@ export function useMoney(
   });
   const [loadAttempt, setLoadAttempt] = useState(0);
   const currencyRef = useRef(initialCurrency);
-  const onErrorRef = useRef(onError);
-  const statusRef = useRef(money.status);
-
-  useEffect(() => {
-    onErrorRef.current = onError;
-    statusRef.current = money.status;
-  });
 
   useEffect(() => {
     const controller = new AbortController();
     setMoney((current) => ({ ...current, status: 'loading' }));
 
     loadRates({ signal: controller.signal })
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setMoney((current) => ({
-          ...current,
-          rates: result.rates,
-          date: result.date,
-          status: 'ready',
-        }));
+      .then(({ rates, date }) => {
+        setMoney((current) => ({ ...current, rates, date, status: 'ready' }));
       })
       .catch((error: unknown) => {
-        if (controller.signal.aborted || isAbortError(error)) return;
+        if (isAbortError(error)) return;
         setMoney((current) => ({ ...current, status: 'error' }));
         if (currencyRef.current !== 'GBP') {
-          const message = error instanceof Error ? error.message : '';
-          onErrorRef.current(message || 'Не удалось загрузить курсы валют');
+          onError(error instanceof Error ? error.message : 'Не удалось загрузить курсы валют');
         }
       });
 
     return () => controller.abort();
   }, [loadAttempt]);
 
-  const setCurrency = useCallback((code: CurrencyCode) => {
+  function setCurrency(code: CurrencyCode) {
     currencyRef.current = code;
-    const failed = statusRef.current === 'error';
-    if (failed) statusRef.current = 'idle';
-    setMoney((current) => ({ ...current, currency: code, status: failed ? 'idle' : current.status }));
-    if (failed) setLoadAttempt((attempt) => attempt + 1);
-  }, []);
+    setMoney((current) => ({ ...current, currency: code }));
+    if (money.status === 'error') setLoadAttempt((attempt) => attempt + 1);
+  }
 
   return { money, setCurrency, rateNote: getRateNote(money) };
 }

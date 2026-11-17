@@ -7,7 +7,6 @@ export interface SeriesInfo {
   extract: string;
   url: string;
   lang: string;
-  scope: string;
 }
 
 interface SeriesRule {
@@ -49,10 +48,10 @@ const SERIES: Partial<Record<CategoryId, SeriesRule[]>> = {
 
 const cache = new Map<string, SeriesInfo | null>();
 
-export function getSeriesTitle(product: DetailsTarget): string | null {
+function getSeriesTitle(product: DetailsTarget): string | null {
   const rules = SERIES[product.category];
   if (!rules) return null;
-  const text = product.model || product.name || '';
+  const text = product.model || product.name;
   const rule = rules.find((item) => item.pattern.test(text));
   return rule ? rule.title : null;
 }
@@ -102,7 +101,6 @@ export async function getSupplementaryInfo(
       extract: shortenExtract(page.extract.trim()),
       url: page.fullurl || `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`,
       lang: 'en',
-      scope: 'series',
     };
   }
   cache.set(title, info);

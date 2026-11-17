@@ -1,4 +1,4 @@
-import { CATALOG_SLUGS, getCategory } from '../data/catalog';
+import { CATALOG_SLUGS } from '../data/catalog';
 import { filterProducts, normalizeCompareResponse, sortProducts } from '../core/products';
 import type { CompareResponse, ProductFilters } from '../core/products';
 import type { CategoryId, DetailsTarget, Product, RatingsMap, SortKey } from '../types';
@@ -6,12 +6,13 @@ import type { CategoryId, DetailsTarget, Product, RatingsMap, SortKey } from '..
 const COMPARE_URL = 'https://vantaspec.com/api/compare';
 const TIMEOUT_MS = 12000;
 const CHUNK_SIZE = 4;
+const PARTNER_TRIES = 3;
 
 export const ATTRIBUTION = { text: 'Данные: VantaSpec', url: 'https://vantaspec.com' };
 
-export type ApiErrorKind = 'http' | 'network' | 'timeout' | 'format' | 'rate';
+type ApiErrorKind = 'http' | 'network' | 'timeout' | 'format' | 'rate';
 
-export interface ApiErrorDetails {
+interface ApiErrorDetails {
   status?: number | null;
   retryAfter?: number | null;
 }
@@ -20,18 +21,13 @@ export interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export interface CategoryResult {
-  items: Product[];
-  attribution: { text: string; url: string };
-}
-
-export interface SearchParams extends ProductFilters {
+interface SearchParams extends ProductFilters {
   category: CategoryId;
   sort?: SortKey;
   ratings?: RatingsMap;
 }
 
-export interface SearchResult {
+interface SearchResult {
   items: Product[];
   total: number;
 }
@@ -155,7 +151,7 @@ function waitWithSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T
   });
 }
 
-export async function fetchCompare(
+async function fetchCompare(
   slugs: string[],
   categoryId: CategoryId,
   { signal }: RequestOptions = {},
@@ -170,39 +166,53 @@ export async function fetchCompare(
   return normalizeCompareResponse(data, categoryId);
 }
 
-function withPartner(slug: string, slugs: string[], skip: string[]): string[] {
-  const partner = slugs.find((other) => other !== slug && !skip.includes(other));
-  return partner ? [slug, partner] : [slug];
+function isNotFound(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
 }
 
-async function fetchChunk(chunk: string[], slugs: string[], categoryId: CategoryId): Promise<Product[]> {
-  const request = chunk.length === 1 ? withPartner(chunk[0], slugs, []) : chunk;
-  try {
-    return await fetchCompare(request, categoryId);
-  } catch (err) {
-    if (!(err instanceof ApiError) || err.status !== 404) throw err;
+async function fetchOne(
+  slug: string,
+  categoryId: CategoryId,
+  skip: string[],
+  signal?: AbortSignal,
+): Promise<Product | null> {
+  const partners = CATALOG_SLUGS[categoryId].filter((other) => other !== slug && !skip.includes(other));
+  for (const partner of partners.slice(0, PARTNER_TRIES)) {
+    try {
+      const items = await fetchCompare([slug, partner], categoryId, { signal });
+      return items.find((item) => item.slug === slug) ?? null;
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
+  }
+  return null;
+}
+
+async function fetchChunk(chunk: string[], categoryId: CategoryId): Promise<Product[]> {
+  if (chunk.length > 1) {
+    try {
+      return await fetchCompare(chunk, categoryId);
+    } catch (err) {
+      if (!isNotFound(err)) throw err;
+    }
   }
 
   const found: Product[] = [];
   for (const slug of chunk) {
-    try {
-      const items = await fetchCompare(withPartner(slug, slugs, chunk), categoryId);
-      found.push(...items.filter((item) => item.slug === slug));
-    } catch (err) {
-      if (!(err instanceof ApiError) || err.status !== 404) throw err;
-    }
+    const item = await fetchOne(slug, categoryId, chunk);
+    if (item) found.push(item);
   }
   return found;
 }
 
-async function fetchCategory(categoryId: CategoryId): Promise<CategoryResult> {
-  const slugs = CATALOG_SLUGS[categoryId] || [];
+async function fetchCategory(categoryId: CategoryId): Promise<Product[]> {
+  const slugs = CATALOG_SLUGS[categoryId];
   const chunks: string[][] = [];
   for (let i = 0; i < slugs.length; i += CHUNK_SIZE) {
     chunks.push(slugs.slice(i, i + CHUNK_SIZE));
   }
 
-  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk, slugs, categoryId)));
+  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk, categoryId)));
 
   const bySlug = new Map<string, Product>();
   for (const items of results) {
@@ -213,18 +223,15 @@ async function fetchCategory(categoryId: CategoryId): Promise<CategoryResult> {
     const item = bySlug.get(slug);
     if (item) items.push(item);
   }
-  return { items, attribution: ATTRIBUTION };
+  return items;
 }
 
-const categoryCache = new Map<CategoryId, Promise<CategoryResult>>();
+const categoryCache = new Map<CategoryId, Promise<Product[]>>();
 
 export function loadCategory(
   categoryId: CategoryId,
   { signal }: RequestOptions = {},
-): Promise<CategoryResult> {
-  if (!getCategory(categoryId)) {
-    return Promise.reject(new Error(`Неизвестная категория: ${categoryId}`));
-  }
+): Promise<Product[]> {
   let promise = categoryCache.get(categoryId);
   if (!promise) {
     promise = fetchCategory(categoryId);
@@ -238,9 +245,9 @@ export async function searchProducts(
   params: SearchParams,
   { signal }: RequestOptions = {},
 ): Promise<SearchResult> {
-  const { items } = await loadCategory(params.category, { signal });
+  const items = await loadCategory(params.category, { signal });
   const filtered = filterProducts(items, params);
-  const sorted = sortProducts(filtered, params.sort || 'popular', params.ratings || {});
+  const sorted = sortProducts(filtered, params.sort, params.ratings);
   return { items: sorted, total: sorted.length };
 }
 
@@ -248,21 +255,15 @@ export async function getProductDetails(
   product: DetailsTarget,
   { signal }: RequestOptions = {},
 ): Promise<Product> {
-  if ('offers' in product && Array.isArray(product.offers)) return product;
+  if ('offers' in product) return product;
 
-  const { items } = await loadCategory(product.category, { signal });
+  const items = await loadCategory(product.category, { signal });
   const found = items.find((item) => item.id === product.id || item.slug === product.slug);
   if (found) return found;
 
-  const other = (CATALOG_SLUGS[product.category] || []).find((slug) => slug !== product.slug);
-  if (product.slug && other) {
-    try {
-      const fetched = await fetchCompare([product.slug, other], product.category, { signal });
-      const item = fetched.find((entry) => entry.slug === product.slug);
-      if (item) return item;
-    } catch (err) {
-      if (!(err instanceof ApiError && err.status === 404)) throw err;
-    }
+  if (product.slug) {
+    const item = await fetchOne(product.slug, product.category, [], signal);
+    if (item) return item;
   }
   throw new ApiError('http', 'Этот товар больше не найден в каталоге.', { status: 404 });
 }
