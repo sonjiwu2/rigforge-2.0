@@ -8,7 +8,7 @@
 }
 
 .dialog::backdrop {
-  background: rgb(24 35 33 / 0.45);
+  background: var(--rf-overlay);
 }
 
 .title {

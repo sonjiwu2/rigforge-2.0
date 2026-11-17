@@ -1,9 +1,6 @@
-import type { ReactNode } from 'react';
 import { Button } from './Button';
 import { joinClasses } from './joinClasses';
 import styles from './StateMessage.module.css';
-
-type TitleTag = 'p' | 'h2' | 'h3';
 
 interface StateMessageProps {
   kind: 'loading' | 'empty' | 'error';
@@ -11,9 +8,8 @@ interface StateMessageProps {
   text?: string;
   actionLabel?: string;
   onAction?: () => void;
-  titleTag?: TitleTag;
+  titleTag?: 'p' | 'h2';
   className?: string;
-  children?: ReactNode;
 }
 
 export function StateMessage({
@@ -24,7 +20,6 @@ export function StateMessage({
   onAction,
   titleTag: TitleElement = 'p',
   className,
-  children,
 }: StateMessageProps) {
   return (
     <div
@@ -38,30 +33,6 @@ export function StateMessage({
           {actionLabel}
         </Button>
       )}
-      {children && <div className={styles.actions}>{children}</div>}
     </div>
   );
-}
-
-interface NoticeProps {
-  title: string;
-  text?: string;
-  titleTag?: TitleTag;
-  role?: 'status' | 'alert';
-  className?: string;
-  children?: ReactNode;
-}
-
-export function Notice({ title, text, titleTag: TitleElement = 'p', role, className, children }: NoticeProps) {
-  return (
-    <div className={joinClasses(styles.state, styles.warning, className)} role={role}>
-      <TitleElement className={styles.title}>{title}</TitleElement>
-      {text && <p className={styles.text}>{text}</p>}
-      {children && <div className={styles.actions}>{children}</div>}
-    </div>
-  );
-}
-
-export function Skeleton({ className }: { className?: string }) {
-  return <span className={joinClasses(styles.skeleton, className)} aria-hidden="true" />;
 }
